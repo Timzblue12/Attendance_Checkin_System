@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block title %}Child Details{% endblock %}
+
+{% block content %}
+<div class="card">
+    <a href="{{ url_for('children_list') }}">&larr; Back to All Children</a>
+    <hr>
+    
+    <h2>{{ child['Child Full Name'] }}</h2>
+    
+    <table style="margin-top: 10px;">
+        <tbody>
+            <tr>
+                <td><strong>Class Type</strong></td>
+                <td>{{ child['Class Type'] }}</td>
+            </tr>
+            <tr>
+                <td><strong>Date of Birth</strong></td>
+                <td>{{ child['Date of Birth'] }}</td>
+            </tr>
+             <tr>
+                <td><strong>Gender</strong></td>
+                <td>{{ child['Gender'] }}</td>
+            </tr>
+            <tr>
+                <td><strong>Assigned Tag Number</strong></td>
+                <td>{{ child['Assigned Tag Number'] }}</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="background-color: #e9ecef;"><strong>Guardian Information</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Guardian Name</strong></td>
+                <td>{{ child['Guardian Name'] }}</td>
+            </tr>
+            <tr>
+                <td><strong>Guardian Phone</strong></td>
+                <td>{{ child['Guardian Phone Number'] }}</td>
+            </tr>
+            <tr>
+                <td><strong>Guardian Email</strong></td>
+                <td>{{ child['Guardian Email'] }}</td>
+            </tr>
+            <tr>
+                <td><strong>House Address</strong></td>
+                <td>{{ child['House Address'] }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

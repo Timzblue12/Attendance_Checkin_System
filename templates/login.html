@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Welcome back</h2>
+    <p>Login in to your account</p>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <form method="post">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <button type="submit" class="login-button">Login</button>
+    </form>
+</div>
+
+<!-- Import DM Sans font -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: #f9f9f9;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    .login-container {
+        width: 350px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.05);
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+    .login-container h2 {
+        margin: 0 0 10px;
+        font-size: 24px;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .login-container p {
+        margin-bottom: 30px;
+        font-size: 14px;
+        color: #666;
+    }
+
+    .form-group {
+        text-align: left;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+        border-color: #2563eb;
+        outline: none;
+    }
+
+    .login-button {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        color: white;
+        background-color: #5B649F;
+        border: none;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .login-button:hover {
+        background-color: #1e40af;
+    }
+
+    .error {
+        color: red;
+        font-size: 14px;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}

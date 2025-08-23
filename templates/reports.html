@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}Attendance Reports{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Attendance Reports</h2>
+    <p>Filter the attendance log to view specific records.</p>
+    
+    <form method="get" action="{{ url_for('reports') }}" class="filter-form">
+        <div class="filter-item">
+            <label for="date">Select Date</label>
+            <input type="date" id="date" name="date" value="{{ selected_filters.date }}">
+        </div>
+        <div class="filter-item">
+            <label for="service">Service Type</label>
+            <select id="service" name="service">
+                <option value="All" {% if selected_filters.service == 'All' %}selected{% endif %}>All Services</option>
+                <option value="1st Service" {% if selected_filters.service == '1st Service' %}selected{% endif %}>1st Service</option>
+                <option value="2nd Service" {% if selected_filters.service == '2nd Service' %}selected{% endif %}>2nd Service</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="class_type">Class Type</label>
+            <select id="class_type" name="class_type">
+                <option value="All" {% if selected_filters.class_type == 'All' %}selected{% endif %}>All Classes</option>
+                <option value="Tenderfoots" {% if selected_filters.class_type == 'Tenderfoots' %}selected{% endif %}>Tenderfoots</option>
+                <option value="Light Troopers" {% if selected_filters.class_type == 'Light Troopers' %}selected{% endif %}>Light Troopers</option>
+                <option value="Tribe of Truth" {% if selected_filters.class_type == 'Tribe of Truth' %}selected{% endif %}>Tribe of Truth</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="day_tag">Filter by Tag</label>
+            <input type="number" id="day_tag" name="day_tag" value="{{ selected_filters.day_tag }}" placeholder="e.g., 55">
+        </div>
+        <div class="filter-item">
+            <button type="submit">Apply Filters</button>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h4>Filtered Results <span class="record-count">({{ record_count }} records found)</span></h4>
+
+    {% if grouped_records %}
+        {% for (date, tag), records in grouped_records.items() %}
+            <div class="group-block">
+                <h3>{{ date }} — Tag: <strong>{{ tag }}</strong> ({{ records|length }} children)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Child Name</th>
+                            <th>Class Type</th>
+                            <th>Service</th>
+                            <th>Check-in Time</th>
+                            <th>Check-out Time</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>{{ record['Child Name'] }}</td>
+                            <td>{{ record.class_type }}</td>
+                            <td>{{ record.Service }}</td>
+                            <td>{{ record['Check-in Time'] }}</td>
+                            <td>{{ record['Check-out Time'] }}</td>
+                            <td>
+                                <form action="{{ url_for('delete_log', row_id=record.row_id) }}" method="post" 
+                                      onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                                    <button type="submit" class="delete-btn">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p style="text-align:center;">No records match your filter criteria.</p>
+    {% endif %}
+</div>
+
+<style>
+    .filter-form { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+    .filter-item { display: flex; flex-direction: column; }
+    .filter-item label { margin-bottom: 5px; font-size: 14px; }
+    .record-count { color: #6c757d; font-weight: normal; font-size: 16px; }
+
+    .group-block { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+    .group-block h3 { margin-bottom: 10px; color: #333; font-size: 18px; }
+
+    .delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; }
+    .delete-btn:hover { background-color: #b02a37; }
+</style>
+{% endblock %}
