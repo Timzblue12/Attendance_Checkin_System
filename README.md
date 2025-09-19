@@ -55,4 +55,7 @@ The goal of this project is to:
 ---
 
 ## 📦 Installation & Setup
-1. Clone this repository
+1. Clone this repository.
+2. Create a virtual environment.
+3. Install dependencies. (pip install -r requirements.txt)
+4. Run the app. (flask run)
