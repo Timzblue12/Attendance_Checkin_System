@@ -1,0 +1,49 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Local Database
+attendance_local.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Credentials (IMPORTANT: Never commit these!)
+credentials.json
+*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+*_backup.py
+app_original_backup.py
+
+# Test files
+test_*.py
+fix_*.py
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment variables
+.env
+.env.local

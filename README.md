@@ -7,26 +7,27 @@ Designed for sunday to sunday use, this project makes it easy to **check in, che
 
 ## 🎯 Aim of the Project
 The goal of this project is to:
-- ✅ Simplify attendance logging for CCI celebkids.
-- ✅ Assign and track **daily tag numbers** for each child.
-- ✅ Allow multiple children to share a tag for group check-ins.
-- ✅ Provide a **real-time dashboard** for instructors.
-- ✅ Make reports easy to generate and filter (by date, service, class, or tag).
-- ✅ Keep everything cloud-based with **Google Sheets** as the database.
+- ✅ Simplify attendance logging for CCI celebkids **and camp events like RebootCamp**.
+- ✅ Assign and track **daily tag numbers** for each child or group.
+- ✅ Capture state, church location, and guardian contact for every attendee.
+- ✅ Provide a **real-time dashboard** with session-level insights.
+- ✅ Make reports easy to generate and filter (by date, session, state, class, tag).
+- ✅ Keep everything cloud-based with **Google Sheets** while buffering offline entries locally.
 
 ---
 
 ## ⚡ Features
 - 🔑 Secure instructor login system.
-- 👧👦 Register and manage children with details like **name, guardian, and class type**.
+- 👧👦 Register and manage children with expanded details (guardian, class, state, church location, notes).
 - 🏷️ **Daily tag assignment** for quick check-ins and check-outs.
 - ⏰ Logs check-in and check-out times automatically.
 - 📊 Dashboard showing attendance breakdown by:
-  - Service (1st / 2nd)
+  - Session period (Morning / Afternoon / Evening)
   - Class type (Tenderfoots, Light Troopers, Tribe of Truth)
-- 📑 Reports with flexible filters (date, service, class, tag).
+- 📑 Reports with flexible filters (event, date, session, period, state, church location, class, tag).
 - 🗑️ Ability to delete incorrect log entries.
-- ☁️ Powered by **Google Sheets** (no extra database required).
+- ☁️ Powered by **Google Sheets** (no extra database required) **with an offline-first queue** so check-ins are never lost.
+- 🔁 Automatic background sync pushes pending check-ins once internet returns.
 
 ---
 
@@ -56,6 +57,9 @@ The goal of this project is to:
 
 ## 📦 Installation & Setup
 1. Clone this repository.
-2. Create a virtual environment.
-3. Install dependencies. (pip install -r requirements.txt)
-4. Run the app. (flask run)
+2. Create a virtual environment and activate it.
+3. Install dependencies: `pip install -r requirements.txt`
+4. Seed the local SQLite database (optional but recommended): `python seed_data.py`
+5. Run locally with SQLite cache: `LOCAL_DEV=true python app.py`
+   - Omit `LOCAL_DEV=true` to talk directly to Google Sheets.
+6. Browse to `http://127.0.0.1:5000` and log in with `admin / admin123` (see `LOCAL_DEVELOPMENT.md` for more test users).
