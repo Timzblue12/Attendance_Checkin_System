@@ -6,33 +6,116 @@
 <div class="card">
     <h2>Registered Children</h2>
     <p>This is a master list of all children in the system. Click on a name to see full details.</p>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>S/N</th>
-                <th>Name</th>
-                <th>Class Type</th>
-                <th>Guardian Name</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for child in children_list %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>
-                    {# The row number in the sheet is the loop index + 1 (for header) #}
-                    <a href="{{ url_for('child_details', row_id=loop.index + 1) }}">{{ child['Child Full Name'] }}</a>
-                </td>
-                <td>{{ child['Class Type'] }}</td>
-                <td>{{ child['Guardian Name'] }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="4" style="text-align: center;">No children found in the database.</td>
-            </tr>
+    <div class="table-actions">
+        <button type="button" class="bulk-btn" onclick="toggleBulkModal(true)">Bulk Upload</button>
+    </div>
+    <div class="table-wrapper" data-pagination-container="children">
+        <table>
+            <thead>
+                <tr>
+                    <th>S/N</th>
+                    <th>Name</th>
+                    <th>Class Type</th>
+                    <th>Guardian Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for child in children_list %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        {# The row number in the sheet is the loop index + 1 (for header) #}
+                        <a href="{{ url_for('child_details', row_id=loop.index + 1) }}">{{ child['Child Full Name'] }}</a>
+                    </td>
+                    <td>{{ child['Class Type'] }}</td>
+                    <td>{{ child['Guardian Name'] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center;">No children found in the database.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if pagination.show %}
+        <nav class="pagination-nav">
+            {% if pagination.has_prev %}
+                <a class="page-link" href="{{ pagination.prev_url }}" aria-label="Previous">&laquo;</a>
+            {% endif %}
+            {% for item in pagination.pages %}
+                {% if item.ellipsis %}
+                    <span class="page-ellipsis">&hellip;</span>
+                {% else %}
+                    <a class="page-link{% if item.current %} active{% endif %}" href="{{ item.url }}">{{ item.number }}</a>
+                {% endif %}
             {% endfor %}
-        </tbody>
-    </table>
+            {% if pagination.has_next %}
+                <a class="page-link" href="{{ pagination.next_url }}" aria-label="Next">&raquo;</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>
 </div>
+
+<div id="bulkModal" class="modal" aria-hidden="true">
+    <div class="modal-overlay" onclick="toggleBulkModal(false)"></div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="bulkModalTitle">
+        <button type="button" class="modal-close" onclick="toggleBulkModal(false)" aria-label="Close">&times;</button>
+        <h3 id="bulkModalTitle">Bulk Upload Children</h3>
+        <p>Download the Excel template, fill in child details (including age), then upload the completed file.</p>
+        <div class="import-actions">
+            <a class="template-btn" href="{{ url_for('download_children_template') }}">Download Template (.xlsx)</a>
+            <form method="post" action="{{ url_for('import_children') }}" enctype="multipart/form-data" class="upload-form">
+                <input type="file" name="children_csv" accept=".xlsx,.csv" required>
+                <button type="submit">Upload Children</button>
+            </form>
+        </div>
+        <small class="import-hint">Required columns: Child Full Name, Guardian Name, Age, Guardian Phone. Optional columns: State, Church Location, Notes. Class type is assigned automatically from age (1-4 Tenderfoots, 5-8 Light Troopers, 9-12 Tribe of Truth). You may upload the provided .xlsx template or a CSV exported from it.</small>
+    </div>
+</div>
+
+<style>
+    .table-actions { display: flex; justify-content: flex-end; margin-bottom: 15px; }
+    .bulk-btn { background-color: #007bff; }
+    .bulk-btn:hover { background-color: #0056b3; }
+    .import-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .template-btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px; }
+    .template-btn:hover { background: #0056b3; }
+    .upload-form { display: flex; gap: 10px; align-items: center; }
+    .upload-form input[type="file"] { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+    .upload-form button { padding: 10px 16px; }
+    .import-hint { display: block; margin-top: 10px; color: #6c757d; font-size: 12px; }
+    .pagination-nav { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+    .pagination-nav .page-link { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 10px; border: 1px solid #ced4da; border-radius: 4px; color: #495057; text-decoration: none; background: #fff; }
+    .pagination-nav .page-link:hover { background: #e9ecef; }
+    .pagination-nav .page-link.active { background: #5B649F; color: #fff; border-color: #5B649F; }
+    .pagination-nav .page-ellipsis { display: inline-flex; align-items: center; padding: 0 6px; color: #6c757d; }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal.show { display: flex; }
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .modal-content { position: relative; background: #fff; padding: 25px; border-radius: 8px; max-width: 520px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-close { position: absolute; top: 10px; right: 12px; background: transparent; border: none; font-size: 26px; line-height: 1; cursor: pointer; color: #555; }
+    .modal-close:hover { color: #000; }
+</style>
+
+<script>
+  function toggleBulkModal(show) {
+    const modal = document.getElementById('bulkModal');
+    if (!modal) return;
+    if (show) {
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+    } else {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      toggleBulkModal(false);
+    }
+  });
+</script>
 {% endblock %}

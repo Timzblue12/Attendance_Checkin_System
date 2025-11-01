@@ -8,16 +8,57 @@
     <p>Filter the attendance log to view specific records.</p>
 
     <form method="get" action="{{ url_for('reports') }}" class="filter-form">
+        <input type="hidden" name="page" value="1">
+        {% if event_options %}
         <div class="filter-item">
-            <label for="date">Select Date</label>
+            <label for="event_id">Event</label>
+            <select id="event_id" name="event_id">
+                {% for event in event_options %}
+                    <option value="{{ event.id }}" {% if selected_filters.event_id == event.id %}selected{% endif %}>{{ event.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="filter-item filter-item--date">
+            <label for="date">Session Date</label>
             <input type="date" id="date" name="date" value="{{ selected_filters.date }}">
         </div>
+        {% if session_options %}
         <div class="filter-item">
-            <label for="service">Service Type</label>
+            <label for="session_id">Session</label>
+            <select id="session_id" name="session_id">
+                <option value="All" {% if selected_filters.session_id == 'All' %}selected{% endif %}>All Sessions</option>
+                {% for session in session_options %}
+                    <option value="{{ session.id }}" {% if selected_filters.session_id == session.id %}selected{% endif %}>{{ session.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="filter-item filter-item--service">
+            <label for="service">Service / Period</label>
             <select id="service" name="service">
-                <option value="All" {% if selected_filters.service == 'All' %}selected{% endif %}>All Services</option>
-                <option value="1st Service" {% if selected_filters.service == '1st Service' %}selected{% endif %}>1st Service</option>
-                <option value="2nd Service" {% if selected_filters.service == '2nd Service' %}selected{% endif %}>2nd Service</option>
+                <option value="All" {% if selected_filters.service == 'All' %}selected{% endif %}>All</option>
+                {% for option in service_options %}
+                    <option value="{{ option }}" {% if selected_filters.service == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="state">State</label>
+            <select id="state" name="state">
+                <option value="All" {% if selected_filters.state == 'All' %}selected{% endif %}>All States</option>
+                {% for state in state_options %}
+                    <option value="{{ state }}" {% if selected_filters.state == state %}selected{% endif %}>{{ state }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="church_location">Church Location</label>
+            <select id="church_location" name="church_location">
+                <option value="All" {% if selected_filters.church_location == 'All' %}selected{% endif %}>All Locations</option>
+                {% for location in location_options %}
+                    <option value="{{ location }}" {% if selected_filters.church_location == location %}selected{% endif %}>{{ location }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="filter-item">
@@ -33,25 +74,46 @@
             <label for="day_tag">Filter by Tag</label>
             <input type="number" id="day_tag" name="day_tag" value="{{ selected_filters.day_tag }}" placeholder="e.g., 55">
         </div>
-        <div class="filter-item">
-            <button type="submit">Apply Filters</button>
+        <div class="filter-actions">
+            <button type="submit" class="apply-btn">Apply Filters</button>
+            <a class="export-btn" href="{{ url_for('export_reports', **export_params) }}">Download CSV</a>
         </div>
     </form>
-</div>
+    
+    <div data-pagination-container="reports">
+        {% if report_pagination and report_pagination.show %}
+        <nav class="pagination-nav">
+            {% if report_pagination.has_prev %}
+                <a class="page-link" href="{{ report_pagination.prev_url }}" aria-label="Previous">&laquo;</a>
+            {% endif %}
+            {% for item in report_pagination.pages %}
+                {% if item.ellipsis %}
+                    <span class="page-ellipsis">&hellip;</span>
+                {% else %}
+                    <a class="page-link{% if item.current %} active{% endif %}" href="{{ item.url }}">{{ item.number }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if report_pagination.has_next %}
+                <a class="page-link" href="{{ report_pagination.next_url }}" aria-label="Next">&raquo;</a>
+            {% endif %}
+        </nav>
+        {% endif %}
 
 <div class="card" style="margin-top: 20px;">
     <h4>Filtered Results <span class="record-count">({{ record_count }} records found)</span></h4>
 
     {% if grouped_records %}
-        {% for (date, tag), records in grouped_records.items() %}
+        {% for (date, session_label, tag), records in grouped_records.items() %}
             <div class="group-block">
-                <h3>{{ date }} — Tag: <strong>{{ tag }}</strong> ({{ records|length }} children)</h3>
+                <h3>{{ date }} — {{ session_label }} — Tag: <strong>{{ tag }}</strong> ({{ records|length }} children)</h3>
                 <table>
                     <thead>
                         <tr>
                             <th>Child Name</th>
                             <th>Class Type</th>
-                            <th>Service</th>
+                            <th>Session / Service</th>
+                            <th>State</th>
+                            <th>Church Location</th>
                             <th>Check-in Time</th>
                             <th>Check-out Time</th>
                             <th>Actions</th>
@@ -62,12 +124,15 @@
                         <tr>
                             <td>{{ record['Child Name'] }}</td>
                             <td>{{ record.class_type }}</td>
-                            <td>{{ record.Service }}</td>
+                            <td>{{ record['Session Label'] or record.Service }}</td>
+                            <td>{{ record['State'] }}</td>
+                            <td>{{ record['Church Location'] }}</td>
                             <td>{{ record['Check-in Time'] }}</td>
                             <td>{{ record['Check-out Time'] }}</td>
                             <td>
                                 <form action="{{ url_for('delete_log', row_id=record.row_id) }}" method="post"
                                       onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                                    <input type="hidden" name="data_source" value="{{ record.get('data_source', 'remote') }}">
                                     <button type="submit" class="delete-btn">Delete</button>
                                 </form>
                             </td>
@@ -82,10 +147,41 @@
     {% endif %}
 </div>
 
+        {% if report_pagination and report_pagination.show %}
+        <nav class="pagination-nav">
+            {% if report_pagination.has_prev %}
+                <a class="page-link" href="{{ report_pagination.prev_url }}" aria-label="Previous">&laquo;</a>
+            {% endif %}
+            {% for item in report_pagination.pages %}
+                {% if item.ellipsis %}
+                    <span class="page-ellipsis">&hellip;</span>
+                {% else %}
+                    <a class="page-link{% if item.current %} active{% endif %}" href="{{ item.url }}">{{ item.number }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if report_pagination.has_next %}
+                <a class="page-link" href="{{ report_pagination.next_url }}" aria-label="Next">&raquo;</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date');
+    if (dateInput && (!dateInput.value || dateInput.value === 'None')) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+});
+</script>
+
 <style>
     .filter-form { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
     .filter-item { display: flex; flex-direction: column; }
     .filter-item label { margin-bottom: 5px; font-size: 14px; }
+    .filter-item--date { margin-right: 20px; }
+    .filter-item--service { margin-left: 10px; }
     .record-count { color: #6c757d; font-weight: normal; font-size: 16px; }
 
     .group-block { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
@@ -93,5 +189,16 @@
 
     .delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; }
     .delete-btn:hover { background-color: #b02a37; }
+    .filter-actions { display: flex; align-items: center; gap: 12px; }
+    .apply-btn, .export-btn { height: 38px; padding: 0 18px; border-radius: 6px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    .apply-btn { background-color: #28a745; color: #fff; border: none; cursor: pointer; }
+    .apply-btn:hover { background-color: #1f7a31; }
+    .export-btn { background-color: #007bff; color: #fff; text-decoration: none; }
+    .export-btn:hover { background-color: #0056b3; }
+    .pagination-nav { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+    .pagination-nav .page-link { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 10px; border: 1px solid #ced4da; border-radius: 4px; color: #495057; text-decoration: none; background: #fff; }
+    .pagination-nav .page-link:hover { background: #e9ecef; }
+    .pagination-nav .page-link.active { background: #5B649F; color: #fff; border-color: #5B649F; }
+    .pagination-nav .page-ellipsis { display: inline-flex; align-items: center; padding: 0 6px; color: #6c757d; }
 </style>
 {% endblock %}

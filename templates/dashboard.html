@@ -6,6 +6,16 @@
 <div class="card">
     <h2>Dashboard</h2>
     <p>Welcome, <strong>{{ instructor_name }}</strong>! Here is your summary for today.</p>
+    {% if event_options %}
+    <form method="get" style="margin-top: 10px; display: inline-block;">
+        <label for="event_id">Event</label>
+        <select id="event_id" name="event_id" onchange="this.form.submit()">
+            {% for event in event_options %}
+                <option value="{{ event.id }}" {% if event.id == selected_event_id %}selected{% endif %}>{{ event.name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% endif %}
 </div>
 
 <div style="display: flex; gap: 20px; margin-top: 20px;">
@@ -32,11 +42,11 @@
 </div>
 
 <div class="card" style="margin-top: 20px;">
-    <h4>Attendance by Service Today</h4>
+    <h4>Attendance by Service / Session Today</h4>
     <div class="chart-container">
-         {% for service_name, count in service_breakdown.items() %}
+         {% for session_name, count in session_breakdown.items() %}
         <div class="chart-bar-wrapper">
-            <div class="chart-label">{{ service_name }} ({{ count }})</div>
+            <div class="chart-label">{{ session_name }} ({{ count }})</div>
             <div class="chart-bar" style="background-color: #28a745; width: {{ (count / checked_in_today * 100) if checked_in_today > 0 else 0 }}%;"></div>
         </div>
         {% endfor %}

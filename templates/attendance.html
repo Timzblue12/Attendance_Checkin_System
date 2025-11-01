@@ -3,6 +3,35 @@
 {% block title %}Attendance Log{% endblock %}
 
 {% block content %}
+<div class="card" style="margin-bottom: 20px;">
+    <form method="get" action="{{ url_for('attendance_log') }}" class="context-form">
+        {% if event_options %}
+        <div class="context-item">
+            <label for="context_event">Event</label>
+            <select id="context_event" name="event_id">
+                {% for event in event_options %}
+                    <option value="{{ event.id }}" {% if event.id == selected_event_id %}selected{% endif %}>{{ event.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="context-item space">
+            <label for="context_date">Session Date</label>
+            <input type="date" id="context_date" name="date" value="{{ selected_session_date }}">
+        </div>
+        {% if session_options and selected_event_id != 'church-service' %}
+        <div class="context-item">
+            <label for="context_session">Session</label>
+            <select id="context_session" name="session_id">
+                {% for session in session_options %}
+                    <option value="{{ session.id }}" {% if session.id == selected_session_id %}selected{% endif %}>{{ session.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
 <div style="display: flex; gap: 30px;">
 
     <div class="card" style="flex: 1;">
@@ -10,8 +39,14 @@
         <p>Assign a temporary tag for today.</p>
         
         <form method="post">
-            <input type="hidden" name="action" value="check_in">
+            <div class="check-btn"> <button type="submit" >Check In</button></div>
             
+            <input type="hidden" name="action" value="check_in">
+            <input type="hidden" name="event_id" value="{{ selected_event_id }}">
+            <input type="hidden" name="session_day" value="{{ selected_session_date }}">
+            <input type="hidden" name="session_id" value="{{ selected_session_id or '' }}">
+            <input type="hidden" name="page" value="{{ attendance_pagination.page if attendance_pagination is defined else 1 }}" data-pagination-sync="attendance">
+
             <label for="child_name">Child Name</label>
             <select id="child_name" name="child_name" style="width: 100%;" required>
                 <option value="">-- Select a Child --</option>
@@ -20,29 +55,106 @@
                 {% endfor %}
             </select>
 
-            <label for="service_type">Service Type</label>
+            {% if selected_event_id == 'church-service' %}
+            <label for="service_type">Service</label>
             <select id="service_type" name="service_type" required>
-                <option value="1st Service">1st Service</option>
-                <option value="2nd Service">2nd Service</option>
+                <option value="1st Service" {% if service_type_default == '1st Service' %}selected{% endif %}>1st Service</option>
+                <option value="2nd Service" {% if service_type_default == '2nd Service' %}selected{% endif %}>2nd Service</option>
             </select>
-            
-            <label for="day_tag">Day Tag Number (1-200)</label>
-            <input type="number" id="day_tag" name="day_tag" min="1" max="200" required>
-            
-            <button type="submit">Check In</button>
+            {% endif %}
+
+            <div class="session-summary">
+                <p><strong>Event:</strong> {{ selected_event.name if selected_event else 'N/A' }}</p>
+                <p><strong>Session:</strong>
+                    <span id="session_label_text">
+                        {% if session_options and selected_event_id != 'church-service' %}
+                            {% for session in session_options %}
+                                {% if session.id == selected_session_id %}{{ session.label }} ({{ session.period }}){% endif %}
+                            {% endfor %}
+                        {% elif selected_event_id == 'church-service' %}
+                            {{ service_type_default or '1st Service' }}
+                        {% else %}
+                            {{ selected_session_id or 'Session' }}
+                        {% endif %}
+                    </span>
+                </p>
+            </div>
+
+             <label for="day_tag">Day Tag Number (1-1000)</label>
+            <input type="number" id="day_tag" name="day_tag" min="1" max="1000" required>
+
+            <label for="state">State</label>
+            <select id="state" name="state">
+                <option value="">-- Select State --</option>
+                {% for state in state_options %}
+                    <option value="{{ state }}">{{ state }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="church_location">Church Location</label>
+            <select id="church_location" name="church_location">
+                <option value="">-- Select Church Location --</option>
+                {% for location in church_locations %}
+                    <option value="{{ location }}">{{ location }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="notes">Notes</label>
+            <input type="text" id="notes" name="notes" placeholder="Optional notes">
+
+            <div class="guardian-info" id="guardian_info">
+                <strong>Guardian:</strong> <span id="guardian_name">—</span><br>
+                <strong>Phone:</strong> <span id="guardian_phone">—</span>
+            </div>
+
+           
         </form>
     </div>
 
     <div class="card" style="flex: 1;">
         <h3>Check Out</h3>
-        <p>Enter the tag number to check out.</p>
+        <p>Enter the tag number to find the children, then confirm checkout.</p>
 
-        <form method="post">
-            <input type="hidden" name="action" value="checkout_by_tag">
+        <form method="post" class="checkout-form">
+            <input type="hidden" name="action" value="find_tag">
+            <input type="hidden" name="event_id" value="{{ selected_event_id }}">
+            <input type="hidden" name="session_day" value="{{ selected_session_date }}">
+            <input type="hidden" name="session_id" value="{{ selected_session_id or '' }}">
+            <input type="hidden" name="page" value="{{ attendance_pagination.page if attendance_pagination is defined else 1 }}" data-pagination-sync="attendance">
+            {% if selected_event_id == 'church-service' %}
+            <input type="hidden" name="service_type" value="{{ service_type_default }}">
+            {% endif %}
             <label for="checkout_tag">Tag Number</label>
-            <input type="number" id="checkout_tag" name="checkout_tag" required>
-            <button type="submit" style="background-color: #5B649F;">Find & Check Out</button>
+            <input type="number" id="checkout_tag" name="checkout_tag" value="{{ checkout_tag_value }}" required>
+            <button type="submit" class="find-btn">Find</button>
         </form>
+
+        {% if checkout_preview %}
+        <div class="checkout-preview">
+            <p><strong>Tag #{{ checkout_preview.tag }}</strong> has the following children checked in:</p>
+            <ul>
+                {% for entry in checkout_preview.details or checkout_preview.children %}
+                    {% if entry is mapping %}
+                        <li>{{ entry.child }} <span class="guardian-label">— Guardian: {{ entry.guardian }}</span></li>
+                    {% else %}
+                        <li>{{ entry }}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+            <form method="post" class="confirm-form">
+                <input type="hidden" name="action" value="checkout_confirm">
+                <input type="hidden" name="event_id" value="{{ selected_event_id }}">
+                <input type="hidden" name="session_day" value="{{ selected_session_date }}">
+                <input type="hidden" name="session_id" value="{{ selected_session_id or '' }}">
+                <input type="hidden" name="checkout_tag" value="{{ checkout_preview.tag }}">
+                <input type="hidden" name="page" value="{{ attendance_pagination.page if attendance_pagination is defined else 1 }}" data-pagination-sync="attendance">
+                {% if selected_event_id == 'church-service' %}
+                <input type="hidden" name="service_type" value="{{ service_type_default }}">
+                {% endif %}
+                <button type="submit" class="confirm-btn">Confirm Checkout</button>
+            </form>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -54,14 +166,17 @@
     {% endif %}
 {% endwith %}
 
-<div class="card" style="margin-top: 30px;">
+<div class="card" style="margin-top: 30px;" data-pagination-container="attendance" data-pagination-current="{{ attendance_pagination.page if attendance_pagination is defined else 1 }}">
     <h3>Today's Log ({{ today_date }})</h3>
     <table>
         <thead>
             <tr>
                 <th>Child Name</th>
                 <th>Day Tag</th>
-                <th>Service</th>
+                <th>Session / Service</th>
+                <th>Period</th>
+                <th>State</th>
+                <th>Church Location</th>
                 <th>Check-in Time</th>
                 <th>Check-out Time</th>
                 <th>Status</th>
@@ -73,7 +188,13 @@
             <tr>
                 <td>{{ record['Child Name'] }}</td>
                 <td><strong>{{ record['Day Tag'] }}</strong></td>
-                <td>{{ record['Service'] }}</td>
+                <td>
+                    {{ record.get('Session Label') or record.get('Service') }}<br>
+                    <small>{{ record.get('Event Name') }}</small>
+                </td>
+                <td>{{ record.get('Session Period') or '—' }}</td>
+                <td>{{ record.get('State') or '—' }}</td>
+                <td>{{ record.get('Church Location') or '—' }}</td>
                 <td>{{ record['Check-in Time'] }}</td>
                 <td>{{ record['Check-out Time'] }}</td>
                 <td>
@@ -82,21 +203,66 @@
                     {% else %}
                         <span style="color: #28a745;">🟢 Checked In</span>
                     {% endif %}
+                    {% if record.get('sync_status') == 'pending' %}
+                        <div style="font-size: 12px; color: #856404;">Pending Sync</div>
+                    {% elif record.get('sync_status') == 'failed' %}
+                        <div style="font-size: 12px; color: #dc3545;">Sync Failed</div>
+                    {% endif %}
                 </td>
                 <td>
                     <form action="{{ url_for('delete_log', row_id=record.row_id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                        <input type="hidden" name="data_source" value="{{ record.get('data_source', 'remote') }}">
                         <button type="submit" class="delete-btn">Delete</button>
                     </form>
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="7" style="text-align: center;">No one has been checked in yet today.</td>
+                <td colspan="10" style="text-align: center;">No one has been checked in yet today.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <style>.delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }</style>
+
+    {% if attendance_pagination.show %}
+    <nav class="pagination-nav">
+        {% if attendance_pagination.has_prev %}
+            <a class="page-link" href="{{ attendance_pagination.prev_url }}" aria-label="Previous">&laquo;</a>
+        {% endif %}
+        {% for item in attendance_pagination.pages %}
+            {% if item.ellipsis %}
+                <span class="page-ellipsis">&hellip;</span>
+            {% else %}
+                <a class="page-link{% if item.current %} active{% endif %}" href="{{ item.url }}">{{ item.number }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if attendance_pagination.has_next %}
+            <a class="page-link" href="{{ attendance_pagination.next_url }}" aria-label="Next">&raquo;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+    <style>
+        .delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }
+        .context-form { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
+        .context-item { display: flex; flex-direction: column; }
+        .context-item label { font-size: 13px; margin-bottom: 4px; }
+        .session-summary { margin: 12px 0; padding: 10px; background: #f1f3ff; border-radius: 6px; font-size: 13px; }
+        .guardian-info { margin: 12px 0; font-size: 13px; color: #555; background: #f8f9fa; padding: 10px; border-radius: 6px; }
+        .checkout-form { display: flex; flex-direction: column; gap: 10px; }
+        .find-btn, .confirm-btn { background-color: #5B649F; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+        .confirm-btn { background-color: #28a745; }
+        .find-btn:hover { background-color: #474f85; }
+        .confirm-btn:hover { background-color: #1f7a31; }
+        .checkout-preview { margin-top: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #f9fafc; }
+        .checkout-preview ul { margin: 8px 0 0; padding-left: 20px; }
+        .guardian-label { color: #555; font-size: 12px; }
+        .pagination-nav { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+        .pagination-nav .page-link { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 10px; border: 1px solid #ced4da; border-radius: 4px; color: #495057; text-decoration: none; background: #fff; }
+        .pagination-nav .page-link:hover { background: #e9ecef; }
+        .pagination-nav .page-link.active { background: #5B649F; color: #fff; border-color: #5B649F; }
+        .pagination-nav .page-ellipsis { display: inline-flex; align-items: center; padding: 0 6px; color: #6c757d; }
+        .space { margin-right: 20px; }
+    </style>
 </div>
 
 <!-- 🔹 Include Select2 -->
@@ -110,7 +276,76 @@
       placeholder: "Search child...",
       allowClear: true
     });
+
+    const childrenMeta = {{ children_meta|tojson }};
+
+    const stateSelect = document.getElementById('state');
+    const churchSelect = document.getElementById('church_location');
+    const notesInput = document.getElementById('notes');
+    const guardianName = document.getElementById('guardian_name');
+    const guardianPhone = document.getElementById('guardian_phone');
+    const serviceSelect = document.getElementById('service_type');
+    const sessionLabelText = document.getElementById('session_label_text');
+    const sessionSelect = document.getElementById('context_session');
+    const contextForm = document.querySelector('.context-form');
+    const dateInput = document.getElementById('context_date');
+
+    if (dateInput && (!dateInput.value || dateInput.value === 'None')) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    function setSelectValue(selectEl, value) {
+      if (!selectEl) return;
+      if (value && !Array.from(selectEl.options).some(opt => opt.value === value)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        selectEl.appendChild(option);
+      }
+      selectEl.value = value || '';
+    }
+
+    $('#child_name').on('change', function() {
+      const selected = $(this).val();
+      const meta = childrenMeta[selected] || {};
+
+      setSelectValue(stateSelect, meta.state || '');
+      setSelectValue(churchSelect, meta.church_location || '');
+      notesInput.value = meta.notes || '';
+      guardianName.textContent = meta.guardian_name || '—';
+      guardianPhone.textContent = meta.guardian_phone || '—';
+    });
+
+    if (serviceSelect && sessionLabelText) {
+      const updateSessionLabel = () => {
+        sessionLabelText.textContent = serviceSelect.value || 'Select a service';
+      };
+      serviceSelect.addEventListener('change', updateSessionLabel);
+      updateSessionLabel();
+    }
+
+    if (!serviceSelect && sessionSelect && sessionLabelText) {
+      const updateFromSession = () => {
+        const option = sessionSelect.options[sessionSelect.selectedIndex];
+        sessionLabelText.textContent = option ? option.text : 'Session';
+      };
+      sessionSelect.addEventListener('change', updateFromSession);
+      updateFromSession();
+    }
+
+    if (contextForm) {
+      const submitOnChange = element => {
+        if (!element) return;
+        element.addEventListener('change', () => contextForm.submit());
+      };
+      submitOnChange(document.getElementById('context_event'));
+      submitOnChange(dateInput);
+      submitOnChange(sessionSelect);
+    }
   });
 </script>
+<style>
+    .check-btn { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+</style>
 
 {% endblock %}
