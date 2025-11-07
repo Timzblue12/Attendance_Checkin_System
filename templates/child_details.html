@@ -7,7 +7,10 @@
     <a href="{{ url_for('children_list') }}">&larr; Back to All Children</a>
     <hr>
     
-    <h2>{{ child['Child Full Name'] }}</h2>
+    <div class="details-header">
+        <h2>{{ child['Child Full Name'] }}</h2>
+        <button type="button" class="edit-btn" onclick="toggleEditModal(true)">Edit Child</button>
+    </div>
     
     <table style="margin-top: 10px;">
         <tbody>
@@ -16,37 +19,118 @@
                 <td>{{ child['Class Type'] }}</td>
             </tr>
             <tr>
-                <td><strong>Date of Birth</strong></td>
-                <td>{{ child['Date of Birth'] }}</td>
-            </tr>
-             <tr>
-                <td><strong>Gender</strong></td>
-                <td>{{ child['Gender'] }}</td>
-            </tr>
-            <tr>
-                <td><strong>Assigned Tag Number</strong></td>
-                <td>{{ child['Assigned Tag Number'] }}</td>
-            </tr>
-            <tr>
-                <td colspan="2" style="background-color: #e9ecef;"><strong>Guardian Information</strong></td>
-            </tr>
-            <tr>
                 <td><strong>Guardian Name</strong></td>
                 <td>{{ child['Guardian Name'] }}</td>
             </tr>
             <tr>
                 <td><strong>Guardian Phone</strong></td>
-                <td>{{ child['Guardian Phone Number'] }}</td>
+                <td>{{ child['Guardian Phone'] or '—' }}</td>
             </tr>
             <tr>
-                <td><strong>Guardian Email</strong></td>
-                <td>{{ child['Guardian Email'] }}</td>
+                <td><strong>State</strong></td>
+                <td>{{ child['State'] or '—' }}</td>
             </tr>
             <tr>
-                <td><strong>House Address</strong></td>
-                <td>{{ child['House Address'] }}</td>
+                <td><strong>Church Location</strong></td>
+                <td>{{ child['Church Location'] or '—' }}</td>
+            </tr>
+            <tr>
+                <td><strong>Camp Group</strong></td>
+                <td>{{ child['Camp Group'] or '—' }}</td>
+            </tr>
+            <tr>
+                <td><strong>Notes</strong></td>
+                <td>{{ child['Notes'] or '—' }}</td>
             </tr>
         </tbody>
     </table>
 </div>
+
+<div id="editModal" class="modal" aria-hidden="true">
+    <div class="modal-overlay" onclick="toggleEditModal(false)"></div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <button type="button" class="modal-close" onclick="toggleEditModal(false)" aria-label="Close">&times;</button>
+        <h3 id="editModalTitle">Edit Child Details</h3>
+        <form method="post" action="{{ url_for('update_child_details', row_id=child['row_id']) }}" class="modal-form">
+            <label>
+                Child Full Name
+                <input type="text" name="child_full_name" value="{{ child['Child Full Name'] }}" required>
+            </label>
+            <label>
+                Class Type
+                <select name="class_type" required>
+                    {% set current_class = child['Class Type'] %}
+                    {% if current_class and current_class not in class_options %}
+                        <option value="{{ current_class }}" selected>{{ current_class }}</option>
+                    {% endif %}
+                    {% for option in class_options %}
+                        <option value="{{ option }}" {% if option == current_class %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Guardian Name
+                <input type="text" name="guardian_name" value="{{ child['Guardian Name'] }}" required>
+            </label>
+            <label>
+                Guardian Phone
+                <input type="tel" name="guardian_phone" value="{{ child['Guardian Phone'] }}" required>
+            </label>
+            <div class="modal-grid">
+                <label>
+                    State
+                    <input type="text" name="state" value="{{ child['State'] }}">
+                </label>
+                <label>
+                    Church Location
+                    <input type="text" name="church_location" value="{{ child['Church Location'] }}">
+                </label>
+            </div>
+            <label>
+                Notes
+                <textarea name="notes" rows="3">{{ child['Notes'] }}</textarea>
+            </label>
+            <button type="submit" class="save-btn">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .details-header { display: flex; justify-content: space-between; align-items: center; }
+    .edit-btn { background-color: #007bff; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .edit-btn:hover { background-color: #0056b3; }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal.show { display: flex; }
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); }
+    .modal-content { position: relative; background: #fff; padding: 24px; border-radius: 10px; width: 90%; max-width: 520px; box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+    .modal-close { position: absolute; top: 10px; right: 12px; background: transparent; border: none; font-size: 26px; cursor: pointer; color: #555; }
+    .modal-close:hover { color: #000; }
+    .modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+    .modal-form label { font-size: 14px; color: #333; display: flex; flex-direction: column; gap: 6px; }
+    .modal-form input, .modal-form select, .modal-form textarea { padding: 10px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; width: 100%; }
+    .modal-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+    .modal-grid label { flex: 1 1 200px; }
+    .save-btn { align-self: flex-end; background: #28a745; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; }
+    .save-btn:hover { background: #1f7a31; }
+</style>
+
+<script>
+    function toggleEditModal(show) {
+        const modal = document.getElementById('editModal');
+        if (!modal) return;
+        if (show) {
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+        } else {
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            toggleEditModal(false);
+        }
+    });
+</script>
 {% endblock %}

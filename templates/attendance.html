@@ -47,13 +47,13 @@
             <input type="hidden" name="session_id" value="{{ selected_session_id or '' }}">
             <input type="hidden" name="page" value="{{ attendance_pagination.page if attendance_pagination is defined else 1 }}" data-pagination-sync="attendance">
 
-            <label for="child_name">Child Name</label>
-            <select id="child_name" name="child_name" style="width: 100%;" required>
-                <option value="">-- Select a Child --</option>
+            <label for="child_name">Child(ren)</label>
+            <select id="child_name" name="child_names" style="width: 100%;" multiple required>
                 {% for name in children_names %}
                     <option value="{{ name }}">{{ name }}</option>
                 {% endfor %}
             </select>
+            <small class="input-hint">Select one or more siblings to share the same day tag.</small>
 
             {% if selected_event_id == 'church-service' %}
             <label for="service_type">Service</label>
@@ -274,7 +274,8 @@
   $(document).ready(function() {
     $('#child_name').select2({
       placeholder: "Search child...",
-      allowClear: true
+      allowClear: true,
+      width: '100%'
     });
 
     const childrenMeta = {{ children_meta|tojson }};
@@ -306,14 +307,20 @@
     }
 
     $('#child_name').on('change', function() {
-      const selected = $(this).val();
-      const meta = childrenMeta[selected] || {};
+      const selectedValues = $(this).val() || [];
+      const lastSelected = Array.isArray(selectedValues) ? selectedValues[selectedValues.length - 1] : selectedValues;
+      const meta = childrenMeta[lastSelected] || {};
 
-      setSelectValue(stateSelect, meta.state || '');
-      setSelectValue(churchSelect, meta.church_location || '');
-      notesInput.value = meta.notes || '';
-      guardianName.textContent = meta.guardian_name || '—';
-      guardianPhone.textContent = meta.guardian_phone || '—';
+      if (lastSelected) {
+        setSelectValue(stateSelect, meta.state || '');
+        setSelectValue(churchSelect, meta.church_location || '');
+        notesInput.value = meta.notes || '';
+        guardianName.textContent = meta.guardian_name || '—';
+        guardianPhone.textContent = meta.guardian_phone || '—';
+      } else {
+        guardianName.textContent = '—';
+        guardianPhone.textContent = '—';
+      }
     });
 
     if (serviceSelect && sessionLabelText) {
@@ -346,6 +353,7 @@
 </script>
 <style>
     .check-btn { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+    .input-hint { display: block; margin-top: 6px; color: #777; font-size: 12px; }
 </style>
 
 {% endblock %}

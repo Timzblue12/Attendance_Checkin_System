@@ -16,6 +16,8 @@ def init_database():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             full_name TEXT NOT NULL,
+            phone_number TEXT,
+            church_branch TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -81,6 +83,7 @@ def init_database():
         )
     ''')
 
+    _ensure_instructor_columns(cursor)
     _ensure_child_columns(cursor)
     _ensure_attendance_columns(cursor)
 
@@ -156,6 +159,20 @@ def _ensure_attendance_columns(cursor):
 
     if 'sync_status' not in existing_columns:
         cursor.execute("UPDATE attendance_log SET sync_status = 'synced' WHERE sync_status IS NULL")
+
+def _ensure_instructor_columns(cursor):
+    """Ensure instructor metadata columns exist on older databases."""
+    cursor.execute("PRAGMA table_info(instructors)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    statements = []
+    if 'phone_number' not in existing_columns:
+        statements.append("ALTER TABLE instructors ADD COLUMN phone_number TEXT")
+    if 'church_branch' not in existing_columns:
+        statements.append("ALTER TABLE instructors ADD COLUMN church_branch TEXT")
+
+    for stmt in statements:
+        cursor.execute(stmt)
 
 def get_connection():
     """Get a database connection."""

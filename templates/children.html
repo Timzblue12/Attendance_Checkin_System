@@ -7,6 +7,7 @@
     <h2>Registered Children</h2>
     <p>This is a master list of all children in the system. Click on a name to see full details.</p>
     <div class="table-actions">
+        <button type="button" class="add-btn" onclick="toggleAddChildModal(true)">Add Child</button>
         <button type="button" class="bulk-btn" onclick="toggleBulkModal(true)">Bulk Upload</button>
     </div>
     <div class="table-wrapper" data-pagination-container="children">
@@ -24,8 +25,7 @@
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>
-                        {# The row number in the sheet is the loop index + 1 (for header) #}
-                        <a href="{{ url_for('child_details', row_id=loop.index + 1) }}">{{ child['Child Full Name'] }}</a>
+                        <a href="{{ url_for('child_details', row_id=child['row_id']) }}">{{ child['Child Full Name'] }}</a>
                     </td>
                     <td>{{ child['Class Type'] }}</td>
                     <td>{{ child['Guardian Name'] }}</td>
@@ -58,6 +58,48 @@
     </div>
 </div>
 
+<div id="addChildModal" class="modal" aria-hidden="true">
+    <div class="modal-overlay" onclick="toggleAddChildModal(false)"></div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="addChildModalTitle">
+        <button type="button" class="modal-close" onclick="toggleAddChildModal(false)" aria-label="Close">&times;</button>
+        <h3 id="addChildModalTitle">Add Child</h3>
+        <p>Use this form for a single child. For multiple children, use the Bulk Upload tool.</p>
+        <form method="post" action="{{ url_for('add_child') }}" class="modal-form" id="addChildForm">
+            <label>
+                Child Full Name
+                <input type="text" name="child_full_name" required>
+            </label>
+            <label>
+                Age (1-12)
+                <input type="number" name="age" min="1" max="12" required>
+            </label>
+            <label>
+                Guardian Name
+                <input type="text" name="guardian_name" required>
+            </label>
+            <label>
+                Guardian Phone
+                <input type="tel" name="guardian_phone" required>
+            </label>
+            <div class="modal-grid">
+                <label>
+                    State
+                    <input type="text" name="state">
+                </label>
+                <label>
+                    Church Location
+                    <input type="text" name="church_location">
+                </label>
+            </div>
+            <label>
+                Notes
+                <textarea name="notes" rows="2" placeholder="Optional notes"></textarea>
+            </label>
+            <button type="submit" class="add-submit-btn">Save Child</button>
+        </form>
+    </div>
+</div>
+
 <div id="bulkModal" class="modal" aria-hidden="true">
     <div class="modal-overlay" onclick="toggleBulkModal(false)"></div>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="bulkModalTitle">
@@ -77,6 +119,9 @@
 
 <style>
     .table-actions { display: flex; justify-content: flex-end; margin-bottom: 15px; }
+    .table-actions button { margin-left: 10px; }
+    .add-btn { background-color: #28a745; }
+    .add-btn:hover { background-color: #1f7a31; }
     .bulk-btn { background-color: #007bff; }
     .bulk-btn:hover { background-color: #0056b3; }
     .import-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
@@ -91,17 +136,25 @@
     .pagination-nav .page-link:hover { background: #e9ecef; }
     .pagination-nav .page-link.active { background: #5B649F; color: #fff; border-color: #5B649F; }
     .pagination-nav .page-ellipsis { display: inline-flex; align-items: center; padding: 0 6px; color: #6c757d; }
-    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000;  }
     .modal.show { display: flex; }
     .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
-    .modal-content { position: relative; background: #fff; padding: 25px; border-radius: 8px; max-width: 520px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-content { position: relative; background: #fff; padding: 40px; border-radius: 8px; max-width: 560px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     .modal-close { position: absolute; top: 10px; right: 12px; background: transparent; border: none; font-size: 26px; line-height: 1; cursor: pointer; color: #555; }
     .modal-close:hover { color: #000; }
+    .modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+    .modal-form label { font-size: 14px; color: #333; display: flex; flex-direction: column; gap: 6px; }
+    .modal-form input,
+    .modal-form textarea { padding: 10px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; }
+    .modal-grid { display: flex; gap: 30px; flex-wrap: wrap; }
+    .modal-grid label { flex: 1 1 200px; }
+    .add-submit-btn { align-self: flex-end; background: #28a745; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; }
+    .add-submit-btn:hover { background: #1f7a31; }
 </style>
 
 <script>
-  function toggleBulkModal(show) {
-    const modal = document.getElementById('bulkModal');
+  function toggleModal(modalId, show) {
+    const modal = document.getElementById(modalId);
     if (!modal) return;
     if (show) {
       modal.classList.add('show');
@@ -112,9 +165,22 @@
     }
   }
 
+  function toggleAddChildModal(show) {
+    toggleModal('addChildModal', show);
+    if (!show) {
+      const form = document.getElementById('addChildForm');
+      if (form) form.reset();
+    }
+  }
+
+  function toggleBulkModal(show) {
+    toggleModal('bulkModal', show);
+  }
+
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
       toggleBulkModal(false);
+      toggleAddChildModal(false);
     }
   });
 </script>

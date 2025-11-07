@@ -6,12 +6,43 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 import json
 import os
+import sys
+import types
 import gspread
 from google.oauth2.service_account import Credentials
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, abort
 from datetime import datetime
 import pytz
 from collections import defaultdict
+from werkzeug.exceptions import BadRequestKeyError
+
+# ---------------------------------------------------------------------------
+# Compatibility shim for Flask 3.x environments where flask.debughelpers
+# was removed but Werkzeug still attempts to import it.
+# ---------------------------------------------------------------------------
+try:
+    import flask.debughelpers  # type: ignore  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover - only hit on newer Flask
+    debughelpers = types.ModuleType("flask.debughelpers")
+
+    class DebugFilesKeyError(BadRequestKeyError):
+        """Minimal stand-in that mirrors the old helper."""
+
+        def __init__(self, request, key):
+            super().__init__(key)
+            self.request = request
+            self.key = key
+
+        def get_description(self, environ=None):
+            base = super().get_description(environ)
+            hint = (
+                "Ensure your form uses enctype=\"multipart/form-data\" and that the "
+                f"file input name matches '{self.key}'."
+            )
+            return f"{base} {hint}"
+
+    debughelpers.DebugFilesKeyError = DebugFilesKeyError
+    sys.modules["flask.debughelpers"] = debughelpers
 
 import sync_queue
 
@@ -403,7 +434,12 @@ def get_all_instructors():
     else:
         workbook = get_workbook()
         instructors_sheet = workbook.worksheet(INSTRUCTORS_SHEET)
-        return instructors_sheet.get_all_records()
+        records = instructors_sheet.get_all_records()
+        for record in records:
+            record.setdefault('PhoneNumber', '')
+            record.setdefault('ChurchBranch', record.get('Church Branch', ''))
+            record.setdefault('FullName', record.get('Full Name') or record.get('FullName'))
+        return records
 
 def get_all_children():
     """Get all children."""
@@ -413,12 +449,13 @@ def get_all_children():
         workbook = get_workbook()
         children_sheet = workbook.worksheet(CHILDREN_SHEET)
         records = children_sheet.get_all_records()
-        for record in records:
+        for idx, record in enumerate(records, start=2):
             record.setdefault('State', '')
             record.setdefault('Church Location', '')
             record.setdefault('Camp Group', '')
             record.setdefault('Guardian Phone', record.get('Guardian Phone', ''))
             record.setdefault('Notes', record.get('Notes', ''))
+            record['row_id'] = idx
         return records
 
 def get_children_names():
@@ -700,6 +737,72 @@ def add_child_record(child_full_name, guardian_name, class_type,
         notes or '',
     ]
     sheet.append_row(new_row, value_input_option='USER_ENTERED')
+    return True
+
+
+def add_instructor_record(full_name, username, password, phone_number='', church_branch=''):
+    """Persist instructor credentials for login access."""
+    if not (full_name and username and password):
+        return False
+
+    existing_usernames = {inst.get('Username', '').strip().lower()
+                          for inst in get_all_instructors()
+                          if inst.get('Username')}
+    if username.strip().lower() in existing_usernames:
+        return False
+
+    if USE_LOCAL_DB:
+        return db_helper.add_instructor(username.strip(), password.strip(), full_name.strip(),
+                                        phone_number=phone_number.strip() or None,
+                                        church_branch=church_branch.strip() or None)
+
+    workbook = get_workbook()
+    sheet = workbook.worksheet(INSTRUCTORS_SHEET)
+    new_row = [
+        username,
+        password,
+        full_name,
+        phone_number or '',
+        church_branch or '',
+    ]
+    sheet.append_row(new_row, value_input_option='USER_ENTERED')
+    return True
+
+
+def update_child_record(row_id, child_full_name, guardian_name, class_type,
+                        state='', church_location='', guardian_phone='', notes=''):
+    """Update an existing child record identified by row_id."""
+    if not row_id:
+        raise ValueError("Row identifier is required to update a child.")
+
+    if USE_LOCAL_DB:
+        actual_id = int(row_id) - 1
+        if actual_id < 1:
+            raise ValueError("Invalid row identifier.")
+        return db_helper.update_child(
+            actual_id,
+            child_full_name,
+            guardian_name,
+            class_type,
+            state=state or None,
+            church_location=church_location or None,
+            guardian_phone=guardian_phone or None,
+            notes=notes or None,
+        )
+
+    workbook = get_workbook()
+    sheet = workbook.worksheet(CHILDREN_SHEET)
+    values = [
+        child_full_name,
+        guardian_name,
+        class_type,
+        state or '',
+        church_location or '',
+        '',  # Camp Group placeholder
+        guardian_phone or '',
+        notes or '',
+    ]
+    sheet.update(f"A{row_id}:H{row_id}", [values])
     return True
 
 
@@ -1047,7 +1150,16 @@ def attendance_log():
 
         if action == 'check_in':
             current_page = parse_page_param(request.form.get('page', page))
-            child_name = request.form['child_name']
+            child_names = request.form.getlist('child_names') or []
+            if not child_names:
+                fallback_child = request.form.get('child_name')
+                if fallback_child:
+                    child_names = [fallback_child]
+            child_names = [name for name in child_names if name]
+            if not child_names:
+                flash("Select at least one child to check in.", "error")
+                return redirect(url_for('attendance_log', event_id=selected_event_id,
+                                        date=selected_session_date, page=current_page))
             day_tag = request.form['day_tag']
             session_data = find_session(selected_event_id, selected_session_id)
             service_type = request.form.get('service_type') if selected_event_id == DEFAULT_EVENT_ID else None
@@ -1063,34 +1175,54 @@ def attendance_log():
             service_value = service_type or session_period or session_label
             current_time = datetime.now(NIGERIA_TZ).strftime("%I:%M %p")
 
-            child_details = get_child_details(child_name)
-            state = request.form.get('state') or child_details.get('State') or ''
-            church_location = request.form.get('church_location') or child_details.get('Church Location') or ''
+            manual_state = request.form.get('state')
+            manual_church_location = request.form.get('church_location')
             notes = request.form.get('notes') or ''
 
-            details = {
-                'event_id': selected_event_id,
-                'event_name': selected_event.get('name') if selected_event else '',
-                'session_id': session_data.get('id') if session_data else selected_session_id,
-                'session_label': session_label,
-                'session_period': session_period,
-                'state': state,
-                'church_location': church_location,
-                'notes': notes,
-                'service': service_value,
-            }
+            success_children = []
+            warning_children = []
+            duplicate_children = []
 
-            result = add_check_in(session_date, child_name, session_label, day_tag, current_time, details=details)
+            for child_name in child_names:
+                child_details = get_child_details(child_name) or {}
+                state = manual_state or child_details.get('State') or ''
+                church_location = manual_church_location or child_details.get('Church Location') or ''
 
-            if result.get('duplicate'):
-                flash(result.get('error') or f"{child_name} is already checked in.", "error")
-            elif result.get('synced'):
-                flash_message = f"{child_name} has been checked in for {session_label} (Tag #{day_tag})."
-                flash(flash_message, "success")
-            else:
+                details = {
+                    'event_id': selected_event_id,
+                    'event_name': selected_event.get('name') if selected_event else '',
+                    'session_id': session_data.get('id') if session_data else selected_session_id,
+                    'session_label': session_label,
+                    'session_period': session_period,
+                    'state': state,
+                    'church_location': church_location,
+                    'notes': notes,
+                    'service': service_value,
+                }
+
+                result = add_check_in(session_date, child_name, session_label, day_tag, current_time, details=details)
+
+                if result.get('duplicate'):
+                    duplicate_children.append(child_name)
+                elif result.get('synced'):
+                    success_children.append(child_name)
+                else:
+                    warning_children.append(child_name)
+
+            if success_children:
                 flash(
-                    f"{child_name} saved locally for {session_label} (Tag #{day_tag}). We'll sync once you're back online.",
+                    f"{', '.join(success_children)} checked in for {session_label} (Tag #{day_tag}).",
+                    "success"
+                )
+            if warning_children:
+                flash(
+                    f"{', '.join(warning_children)} saved locally for {session_label} (Tag #{day_tag}). We'll sync once you're back online.",
                     "warning"
+                )
+            if duplicate_children:
+                flash(
+                    f"{', '.join(duplicate_children)} already have check-ins for {session_label}.",
+                    "error"
                 )
 
             redirect_params = {
@@ -1299,11 +1431,107 @@ def children_list():
         return redirect(url_for('login'))
 
     all_children = get_all_children()
+    indexed_children = []
+    for idx, child in enumerate(all_children, start=2):
+        child_copy = dict(child)
+        child_copy.setdefault('row_id', idx)
+        indexed_children.append(child_copy)
+
+    newest_first_children = sorted(indexed_children,
+                                   key=lambda record: record.get('row_id', 0),
+                                   reverse=True)
+
     page = parse_page_param(request.args.get('page', 1))
-    paginated_children, pagination = paginate_collection(all_children, page, CHILDREN_PER_PAGE,
+    paginated_children, pagination = paginate_collection(newest_first_children, page, CHILDREN_PER_PAGE,
                                                         'children_list', request.args)
 
     return render_template('children.html', children_list=paginated_children, pagination=pagination)
+
+
+@app.route('/children/add', methods=['POST'])
+def add_child():
+    """Adds a single child via the Add Child modal."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    child_name = (request.form.get('child_full_name') or '').strip()
+    guardian_name = (request.form.get('guardian_name') or '').strip()
+    guardian_phone = (request.form.get('guardian_phone') or '').strip()
+    age_value = (request.form.get('age') or '').strip()
+    state = (request.form.get('state') or '').strip()
+    church_location = (request.form.get('church_location') or '').strip()
+    notes = (request.form.get('notes') or '').strip()
+
+    if not child_name or not guardian_name or not guardian_phone or not age_value:
+        flash('Child name, guardian name, guardian phone, and age are required.', 'error')
+        return redirect(url_for('children_list'))
+
+    try:
+        class_type = class_type_from_age(age_value)
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('children_list'))
+
+    try:
+        added = add_child_record(
+            child_name,
+            guardian_name,
+            class_type,
+            state=state,
+            church_location=church_location,
+            guardian_phone=guardian_phone,
+            notes=notes,
+        )
+    except Exception as exc:
+        flash(f"Could not add child: {exc}", 'error')
+        return redirect(url_for('children_list'))
+
+    if added:
+        flash(f"{child_name} added successfully.", 'success')
+    else:
+        flash(f"Unable to add {child_name}. They may already exist.", 'warning')
+
+    return redirect(url_for('children_list'))
+
+
+@app.route('/instructors/add', methods=['POST'])
+def add_instructor():
+    """Add a new instructor account."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    full_name = (request.form.get('instructor_name') or '').strip()
+    username = (request.form.get('instructor_username') or '').strip()
+    phone_number = (request.form.get('instructor_phone') or '').strip()
+    church_branch = (request.form.get('instructor_branch') or '').strip()
+    password = (request.form.get('instructor_password') or '').strip()
+    confirm_password = (request.form.get('instructor_password_confirm') or '').strip()
+
+    if not full_name or not username or not password:
+        flash('Name, username, and password are required for an instructor.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+    if password != confirm_password:
+        flash('Password and Confirm Password must match.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    try:
+        created = add_instructor_record(
+            full_name,
+            username,
+            password,
+            phone_number=phone_number,
+            church_branch=church_branch,
+        )
+    except Exception as exc:
+        flash(f"Unable to add instructor: {exc}", 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    if created:
+        flash(f"Instructor {full_name} added successfully.", 'success')
+    else:
+        flash(f"Could not add {full_name}. The username may already exist.", 'warning')
+
+    return redirect(request.referrer or url_for('dashboard'))
 
 
 @app.route('/children/template')
@@ -1426,9 +1654,60 @@ def child_details(row_id):
         return redirect(url_for('login'))
 
     all_children = get_all_children()
-    child_record = all_children[row_id - 2]  # Adjust for header row
+    child_record = None
+    for idx, child in enumerate(all_children, start=2):
+        current_row_id = child.get('row_id', idx)
+        if current_row_id == row_id:
+            child_record = child
+            break
 
-    return render_template('child_details.html', child=child_record)
+    if not child_record:
+        abort(404)
+
+    class_options = ['Tenderfoots', 'Light Troopers', 'Tribe of Truth']
+
+    return render_template('child_details.html', child=child_record, class_options=class_options)
+
+
+@app.route('/child/<int:row_id>/update', methods=['POST'])
+def update_child_details(row_id):
+    """Updates a child's details."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    child_name = (request.form.get('child_full_name') or '').strip()
+    class_type = (request.form.get('class_type') or '').strip()
+    guardian_name = (request.form.get('guardian_name') or '').strip()
+    guardian_phone = (request.form.get('guardian_phone') or '').strip()
+    state = (request.form.get('state') or '').strip()
+    church_location = (request.form.get('church_location') or '').strip()
+    notes = (request.form.get('notes') or '').strip()
+
+    if not child_name or not class_type or not guardian_name or not guardian_phone:
+        flash('Child name, class type, guardian name, and guardian phone are required.', 'error')
+        return redirect(url_for('child_details', row_id=row_id))
+
+    try:
+        updated = update_child_record(
+            row_id,
+            child_name,
+            guardian_name,
+            class_type,
+            state=state,
+            church_location=church_location,
+            guardian_phone=guardian_phone,
+            notes=notes,
+        )
+    except Exception as exc:
+        flash(f"Unable to update child: {exc}", 'error')
+        return redirect(url_for('child_details', row_id=row_id))
+
+    if updated:
+        flash('Child details updated successfully.', 'success')
+    else:
+        flash('No changes were saved.', 'warning')
+
+    return redirect(url_for('child_details', row_id=row_id))
 
 @app.route('/reports')
 def reports():

@@ -12,7 +12,16 @@ def get_all_instructors():
     """Get all instructors as a list of dictionaries (mimics gspread.get_all_records())."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT username as Username, password as Password, full_name as FullName FROM instructors")
+    cursor.execute("""
+        SELECT
+            username as Username,
+            password as Password,
+            full_name as FullName,
+            COALESCE(phone_number, '') as PhoneNumber,
+            COALESCE(church_branch, '') as ChurchBranch
+        FROM instructors
+        ORDER BY id DESC
+    """)
 
     rows = cursor.fetchall()
     conn.close()
@@ -20,15 +29,18 @@ def get_all_instructors():
     # Convert to list of dicts (matching Google Sheets format)
     return [dict(row) for row in rows]
 
-def add_instructor(username, password, full_name):
+def add_instructor(username, password, full_name, phone_number=None, church_branch=None):
     """Add a new instructor."""
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
         cursor.execute(
-            "INSERT INTO instructors (username, password, full_name) VALUES (?, ?, ?)",
-            (username, password, full_name)
+            """
+            INSERT INTO instructors (username, password, full_name, phone_number, church_branch)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (username, password, full_name, phone_number, church_branch)
         )
         conn.commit()
         return True
@@ -45,6 +57,7 @@ def get_all_children():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT
+            id,
             child_full_name as 'Child Full Name',
             guardian_name as 'Guardian Name',
             class_type as 'Class Type',
@@ -52,15 +65,23 @@ def get_all_children():
             church_location as 'Church Location',
             camp_group as 'Camp Group',
             guardian_phone as 'Guardian Phone',
-            notes as 'Notes'
+            notes as 'Notes',
+            created_at
         FROM children
-        ORDER BY child_full_name
+        ORDER BY id ASC
     """)
 
     rows = cursor.fetchall()
     conn.close()
 
-    return [dict(row) for row in rows]
+    children = []
+    for row in rows:
+        record = dict(row)
+        record.setdefault('created_at', row['created_at'])
+        record['row_id'] = row['id'] + 1  # align with sheet-style numbering
+        children.append(record)
+
+    return children
 
 def get_children_names():
     """Get list of all children names."""
@@ -93,6 +114,35 @@ def add_child(child_full_name, guardian_name, class_type,
         return True
     except sqlite3.IntegrityError:
         return False  # Child already exists
+    finally:
+        conn.close()
+
+def update_child(child_id, child_full_name, guardian_name, class_type,
+                 state=None, church_location=None, guardian_phone=None, notes=None):
+    """Update an existing child record."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE children
+            SET child_full_name = ?, guardian_name = ?, class_type = ?, state = ?,
+                church_location = ?, guardian_phone = ?, notes = ?
+            WHERE id = ?
+            """,
+            (
+                child_full_name,
+                guardian_name,
+                class_type,
+                state,
+                church_location,
+                guardian_phone,
+                notes,
+                child_id,
+            )
+        )
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()
 
