@@ -15,10 +15,14 @@
             background-color: #f8f9fa; 
         }
         .container { display: flex; }
-        .sidebar { width: 220px; background-color: #252627; color: white; height: 100vh; padding: 20px; }
+        .sidebar { width: 220px; background-color: #252627; color: white; min-height: 100vh; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
         .sidebar h2 { color: #f8f9fa; font-weight: 600; }
-        .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 15px; border-radius: 4px; margin-bottom: 5px; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 5px; }
+        .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 15px; border-radius: 4px; }
         .sidebar a:hover, .sidebar a.active { background-color: #5B649F; color: white; }
+        .sidebar-actions { margin-top: auto; }
+        .sidebar-btn { width: 100%; background-color: #fff; border: none; color: #5B649F; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .sidebar-btn:hover { background-color: #ccd1f1; }
         .main-content { flex-grow: 1; padding: 30px; }
         .card { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         input, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; }
@@ -40,18 +44,39 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .pagination-loading { position: relative; opacity: 0.6; pointer-events: none; }
+        .global-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1500; }
+        .global-modal.show { display: flex; }
+        .global-modal .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+        .global-modal .modal-content { position: relative; background: #fff; padding: 30px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+        .global-modal .modal-close { position: absolute; top: 10px; right: 12px; background: transparent; border: none; font-size: 26px; cursor: pointer; color: #555; }
+        .global-modal .modal-close:hover { color: #000; }
+        .global-modal form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+        .global-modal label { font-size: 14px; color: #333; display: flex; flex-direction: column; gap: 6px; }
+        .global-modal button[type="submit"] { background-color: #5B649F; }
+        .global-modal button[type="submit"]:hover { background-color: #4a5385; }
+        .password-field { display: flex; flex-direction: column; gap: 6px; }
+        .password-input { display: flex; align-items: center; gap: 8px; }
+        .password-input input { flex: 1; }
+        .password-toggle { background: #e9ecef; border: none; border-radius: 4px; padding: 0 10px; height: 40px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #333; }
+        .password-toggle svg { width: 18px; height: 18px; }
+        .password-toggle:hover { background: #d6dae0; }
     </style>
 </head>
 <body>
     <div class="container">
         {% if session.logged_in %}
         <div class="sidebar">
-            <h2>CelebKids Egbeda</h2>
-            <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
-            <a href="{{ url_for('attendance_log') }}">Attendance</a>
-            <a href="{{ url_for('children_list') }}">Children</a>
-            <a href="{{ url_for('reports') }}">Reports</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
+            <h2>CelebKids</h2>
+            <div class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
+                <a href="{{ url_for('attendance_log') }}">Attendance</a>
+                <a href="{{ url_for('children_list') }}">Children</a>
+                <a href="{{ url_for('reports') }}">Reports</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+                <button type="button" class="sidebar-btn" onclick="toggleInstructorModal(true)">Add Instructor</button>
+
+            </div>
+            
         </div>
         {% endif %}
         <div class="main-content">
@@ -70,6 +95,57 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+    {% if session.logged_in %}
+    <div id="instructorModal" class="global-modal" aria-hidden="true">
+        <div class="modal-overlay" onclick="toggleInstructorModal(false)"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="instructorModalTitle">
+            <button type="button" class="modal-close" onclick="toggleInstructorModal(false)" aria-label="Close">&times;</button>
+            <h3 id="instructorModalTitle">Add Instructor</h3>
+            <p style="margin-top:0;">Provide login credentials for a new instructor.</p>
+            <form method="post" action="{{ url_for('add_instructor') }}">
+                <label>
+                    Full Name
+                    <input type="text" name="instructor_name" required>
+                </label>
+                <label>
+                    Username
+                    <input type="text" name="instructor_username" required>
+                </label>
+                <label>
+                    Phone Number
+                    <input type="tel" name="instructor_phone">
+                </label>
+                <label>
+                    Church Branch
+                    <input type="text" name="instructor_branch">
+                </label>
+                <div class="password-field">
+                    <label for="instructor_password">Password</label>
+                    <div class="password-input">
+                        <input type="password" id="instructor_password" name="instructor_password" required>
+                        <button type="button" class="password-toggle" data-password-toggle="instructor_password" aria-label="Show password">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 .001 6.001A3 3 0 0 0 12 9z" fill="#333"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="password-field">
+                    <label for="instructor_password_confirm">Confirm Password</label>
+                    <div class="password-input">
+                        <input type="password" id="instructor_password_confirm" name="instructor_password_confirm" required>
+                        <button type="button" class="password-toggle" data-password-toggle="instructor_password_confirm" aria-label="Show password">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 .001 6.001A3 3 0 0 0 12 9z" fill="#333"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit">Save Instructor</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </body>
 <script>
 (function() {
@@ -194,4 +270,49 @@
   syncPaginationForms('attendance', document.querySelector('[data-pagination-container="attendance"]'));
 })();
 </script>
+{% if session.logged_in %}
+<script>
+(function() {
+  const modal = document.getElementById('instructorModal');
+  if (!modal) return;
+
+  window.toggleInstructorModal = function(show) {
+    if (show) {
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+      const firstInput = modal.querySelector('input[name="instructor_name"]');
+      if (firstInput) {
+        setTimeout(() => firstInput.focus(), 50);
+      }
+    } else {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      const form = modal.querySelector('form');
+      if (form) {
+        form.reset();
+      }
+    }
+  };
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      toggleInstructorModal(false);
+    }
+  });
+
+  const toggleButtons = modal.querySelectorAll('[data-password-toggle]');
+  toggleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.getAttribute('data-password-toggle');
+      if (!targetId) return;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      const showing = input.getAttribute('type') === 'text';
+      input.setAttribute('type', showing ? 'password' : 'text');
+      button.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+  });
+})();
+</script>
+{% endif %}
 </html>
