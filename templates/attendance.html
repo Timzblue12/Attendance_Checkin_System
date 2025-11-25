@@ -101,27 +101,6 @@
                     <option value="{{ location }}">{{ location }}</option>
                 {% endfor %}
             </select>
-
-            <!-- <div class="session-summary">
-                <p><strong>Event:</strong> {{ selected_event.name if selected_event else 'N/A' }}</p>
-                <p><strong>Session:</strong>
-                    <span id="session_label_text">
-                        {% if session_options and selected_event_id != 'church-service' %}
-                            {% for session in session_options %}
-                                {% if session.id == selected_session_id %}{{ session.period }} Session{% endif %}
-                            {% endfor %}
-                        {% elif selected_event_id == 'church-service' %}
-                            {{ service_type_default or '1st Service' }}
-                        {% else %}
-                            {{ selected_session_id or 'Session' }}
-                        {% endif %}
-                    </span>
-                </p>
-            </div> -->
-
-
-            
-
            
         </form>
     </div>
