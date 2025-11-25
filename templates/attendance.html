@@ -24,7 +24,7 @@
             <label for="context_session">Session</label>
             <select id="context_session" name="session_id">
                 {% for session in session_options %}
-                    <option value="{{ session.id }}" {% if session.id == selected_session_id %}selected{% endif %}>{{ session.label }}</option>
+                    <option value="{{ session.id }}" data-period="{{ session.period }}" {% if session.id == selected_session_id %}selected{% endif %}>{{ session.period }} Session</option>
                 {% endfor %}
             </select>
         </div>
@@ -63,33 +63,36 @@
             </select>
             {% endif %}
 
-            <div class="session-summary">
-                <p><strong>Event:</strong> {{ selected_event.name if selected_event else 'N/A' }}</p>
-                <p><strong>Session:</strong>
-                    <span id="session_label_text">
-                        {% if session_options and selected_event_id != 'church-service' %}
-                            {% for session in session_options %}
-                                {% if session.id == selected_session_id %}{{ session.label }} ({{ session.period }}){% endif %}
-                            {% endfor %}
-                        {% elif selected_event_id == 'church-service' %}
-                            {{ service_type_default or '1st Service' }}
-                        {% else %}
-                            {{ selected_session_id or 'Session' }}
-                        {% endif %}
-                    </span>
-                </p>
+<div class="child-detail-panel">
+                <div class="child-detail-head">
+                    <div>
+                        <p class="detail-label">Selected child</p>
+                        <p class="detail-name" id="detail_child_name">Choose a child to view details</p>
+                        
+                    </div>
+                    
+                </div>
+
+                <div class="guardian-info" id="guardian_info">
+                    <strong>Guardian:</strong> <span id="guardian_name">—</span><br>
+                    <strong>Phone:</strong> <span id="guardian_phone">—</span><br>
+                    <strong> <span id="detail_child_class"> —</span></strong>
+                </div>
+
+                <div class="note-block">
+                    <label for="notes">Child note (edit before check-in)</label>
+                    <textarea id="notes" name="notes" rows="2" placeholder="Optional notes or reminders"></textarea>
+                    <small class="input-hint">Saved note is shown below; you can edit it before submitting.</small>
+                </div>
+
+               
             </div>
 
-             <label for="day_tag">Day Tag Number (1-1000)</label>
-            <input type="number" id="day_tag" name="day_tag" min="1" max="1000" required>
 
-            <label for="state">State</label>
-            <select id="state" name="state">
-                <option value="">-- Select State --</option>
-                {% for state in state_options %}
-                    <option value="{{ state }}">{{ state }}</option>
-                {% endfor %}
-            </select>
+             <label for="day_tag">Day Tag Number </label>
+            <input type="number" id="day_tag" name="day_tag" min="1" max="1000" required style="width: auto;"><br/>
+
+            
 
             <label for="church_location">Church Location</label>
             <select id="church_location" name="church_location">
@@ -99,13 +102,25 @@
                 {% endfor %}
             </select>
 
-            <label for="notes">Notes</label>
-            <input type="text" id="notes" name="notes" placeholder="Optional notes">
+            <!-- <div class="session-summary">
+                <p><strong>Event:</strong> {{ selected_event.name if selected_event else 'N/A' }}</p>
+                <p><strong>Session:</strong>
+                    <span id="session_label_text">
+                        {% if session_options and selected_event_id != 'church-service' %}
+                            {% for session in session_options %}
+                                {% if session.id == selected_session_id %}{{ session.period }} Session{% endif %}
+                            {% endfor %}
+                        {% elif selected_event_id == 'church-service' %}
+                            {{ service_type_default or '1st Service' }}
+                        {% else %}
+                            {{ selected_session_id or 'Session' }}
+                        {% endif %}
+                    </span>
+                </p>
+            </div> -->
 
-            <div class="guardian-info" id="guardian_info">
-                <strong>Guardian:</strong> <span id="guardian_name">—</span><br>
-                <strong>Phone:</strong> <span id="guardian_phone">—</span>
-            </div>
+
+            
 
            
         </form>
@@ -174,9 +189,8 @@
                 <th>Child Name</th>
                 <th>Day Tag</th>
                 <th>Session / Service</th>
-                <th>Period</th>
-                <th>State</th>
-                <th>Church Location</th>
+                <th>Campus</th>
+                <th>Notes</th>
                 <th>Check-in Time</th>
                 <th>Check-out Time</th>
                 <th>Status</th>
@@ -189,19 +203,22 @@
                 <td>{{ record['Child Name'] }}</td>
                 <td><strong>{{ record['Day Tag'] }}</strong></td>
                 <td>
-                    {{ record.get('Session Label') or record.get('Service') }}<br>
-                    <small>{{ record.get('Event Name') }}</small>
+                    {% set period = record.get('Session Period') %}
+                    {% if period %}
+                        {{ period }} Session
+                    {% else %}
+                        {{ record.get('Service') or record.get('Session Label') }}
+                    {% endif %}<br>
                 </td>
-                <td>{{ record.get('Session Period') or '—' }}</td>
-                <td>{{ record.get('State') or '—' }}</td>
                 <td>{{ record.get('Church Location') or '—' }}</td>
+                <td>{{ record.get('Notes') or '—' }}</td>
                 <td>{{ record['Check-in Time'] }}</td>
                 <td>{{ record['Check-out Time'] }}</td>
                 <td>
                     {% if record['Status'] == 'Checked-Out' %}
-                        <span style="color: #dc3545;">🔴 Checked Out</span>
+                        <span style="color: #dc3545; font-size: 12px; ">🔴 Checked Out</span>
                     {% else %}
-                        <span style="color: #28a745;">🟢 Checked In</span>
+                        <span style="color: #28a745; font-size: 12px; ">🟢 Checked In</span>
                     {% endif %}
                     {% if record.get('sync_status') == 'pending' %}
                         <div style="font-size: 12px; color: #856404;">Pending Sync</div>
@@ -218,7 +235,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="10" style="text-align: center;">No one has been checked in yet today.</td>
+                <td colspan="9" style="text-align: center;">No one has been checked in yet today.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -248,6 +265,16 @@
         .context-item label { font-size: 13px; margin-bottom: 4px; }
         .session-summary { margin: 12px 0; padding: 10px; background: #f1f3ff; border-radius: 6px; font-size: 13px; }
         .guardian-info { margin: 12px 0; font-size: 13px; color: #555; background: #f8f9fa; padding: 10px; border-radius: 6px; }
+        .child-detail-panel { margin: 12px 0; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fdfdfd; }
+        .child-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+        .detail-label { font-size: 12px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 4px; }
+        .detail-name { margin: 0; font-size: 16px; font-weight: 600; color: #2c2f48; }
+        .detail-sub { margin: 4px 0 0; color: #6c757d; font-size: 13px; }
+        .detail-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .detail-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef0ff; color: #394170; padding: 6px 10px; border-radius: 20px; font-size: 12px; }
+        .note-block { margin-top: 8px; }
+        .note-block textarea { width: 100%; resize: vertical; }
+        .note-preview { margin-top: 8px; font-size: 13px; color: #555; }
         .checkout-form { display: flex; flex-direction: column; gap: 10px; }
         .find-btn, .confirm-btn { background-color: #5B649F; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
         .confirm-btn { background-color: #28a745; }
@@ -290,6 +317,11 @@
     const sessionSelect = document.getElementById('context_session');
     const contextForm = document.querySelector('.context-form');
     const dateInput = document.getElementById('context_date');
+    const detailChildName = document.getElementById('detail_child_name');
+    const detailChildClass = document.getElementById('detail_child_class');
+    const detailChildState = document.getElementById('detail_child_state');
+    const detailChildLocation = document.getElementById('detail_child_location');
+    const detailChildNote = document.getElementById('detail_child_note');
 
     if (dateInput && (!dateInput.value || dateInput.value === 'None')) {
       dateInput.value = new Date().toISOString().split('T')[0];
@@ -306,22 +338,68 @@
       selectEl.value = value || '';
     }
 
+    function updateNotePreview(noteText) {
+      if (detailChildNote) {
+        detailChildNote.textContent = noteText ? noteText : '—';
+      }
+    }
+
+    function resetChildDetails() {
+      if (detailChildName) detailChildName.textContent = 'Choose a child to view details';
+      if (detailChildClass) detailChildClass.textContent = 'Class: —';
+      if (detailChildState) detailChildState.textContent = '—';
+      if (detailChildLocation) detailChildLocation.textContent = '—';
+      updateNotePreview('');
+      guardianName.textContent = '—';
+      guardianPhone.textContent = '—';
+      setSelectValue(stateSelect, '');
+      setSelectValue(churchSelect, '');
+      if (notesInput) notesInput.value = '';
+    }
+
+    function applyChildMeta(childName) {
+      const meta = childrenMeta[childName] || {};
+      setSelectValue(stateSelect, meta.state || '');
+      setSelectValue(churchSelect, meta.church_location || '');
+      if (notesInput) notesInput.value = meta.notes || '';
+      guardianName.textContent = meta.guardian_name || '—';
+      guardianPhone.textContent = meta.guardian_phone || '—';
+      if (detailChildName) detailChildName.textContent = childName || 'Choose a child to view details';
+      if (detailChildClass) detailChildClass.textContent = meta.class_type ? `Class: ${meta.class_type}` : 'Class: —';
+      if (detailChildState) detailChildState.textContent = meta.state || '—';
+      if (detailChildLocation) detailChildLocation.textContent = meta.church_location || '—';
+      updateNotePreview(meta.notes || '');
+    }
+
     $('#child_name').on('change', function() {
       const selectedValues = $(this).val() || [];
       const lastSelected = Array.isArray(selectedValues) ? selectedValues[selectedValues.length - 1] : selectedValues;
-      const meta = childrenMeta[lastSelected] || {};
-
       if (lastSelected) {
-        setSelectValue(stateSelect, meta.state || '');
-        setSelectValue(churchSelect, meta.church_location || '');
-        notesInput.value = meta.notes || '';
-        guardianName.textContent = meta.guardian_name || '—';
-        guardianPhone.textContent = meta.guardian_phone || '—';
+        applyChildMeta(lastSelected);
       } else {
-        guardianName.textContent = '—';
-        guardianPhone.textContent = '—';
+        resetChildDetails();
       }
     });
+
+    if (stateSelect && detailChildState) {
+      stateSelect.addEventListener('change', () => {
+        detailChildState.textContent = stateSelect.value || '—';
+      });
+    }
+
+    if (churchSelect && detailChildLocation) {
+      churchSelect.addEventListener('change', () => {
+        detailChildLocation.textContent = churchSelect.value || '—';
+      });
+    }
+
+    const preSelectedValues = $('#child_name').val() || [];
+    const initialSelection = Array.isArray(preSelectedValues) ? preSelectedValues[preSelectedValues.length - 1] : preSelectedValues;
+    if (initialSelection) {
+      applyChildMeta(initialSelection);
+    } else {
+      resetChildDetails();
+    }
 
     if (serviceSelect && sessionLabelText) {
       const updateSessionLabel = () => {
@@ -334,7 +412,12 @@
     if (!serviceSelect && sessionSelect && sessionLabelText) {
       const updateFromSession = () => {
         const option = sessionSelect.options[sessionSelect.selectedIndex];
-        sessionLabelText.textContent = option ? option.text : 'Session';
+        if (!option) {
+          sessionLabelText.textContent = 'Session';
+          return;
+        }
+        const period = option.dataset.period;
+        sessionLabelText.textContent = period ? `${period} Session` : option.text || 'Session';
       };
       sessionSelect.addEventListener('change', updateFromSession);
       updateFromSession();
