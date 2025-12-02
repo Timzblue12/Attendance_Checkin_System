@@ -323,14 +323,29 @@ def apply_report_filters(event_id, selected_date, selected_service, selected_ses
 # --- Google Sheets Connection (Production Only) ---
 def get_sheets_client():
     """Establishes a connection with the Google Sheets API and returns a client object."""
+    def _find_credentials_path():
+        env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if env_path and os.path.exists(env_path):
+            return env_path
+
+        for name in ("credentials.json", "rbccelebkids.json"):
+            candidate = os.path.join(os.path.dirname(__file__), name)
+            if os.path.exists(candidate):
+                return candidate
+
+        raise FileNotFoundError(
+            "Google Sheets credentials not found. "
+            "Ensure credentials.json or rbccelebkids.json is present in the app folder "
+            "or set GOOGLE_APPLICATION_CREDENTIALS to the full path."
+        )
+
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_path = os.path.join(os.path.dirname(__file__), "credentials.json")
-    creds = Credentials.from_service_account_file(creds_path, scopes=scope)
+    creds = Credentials.from_service_account_file(_find_credentials_path(), scopes=scope)
     client = gspread.authorize(creds)
     return client
 
