@@ -129,7 +129,11 @@
             <ul>
                 {% for entry in checkout_preview.details or checkout_preview.children %}
                     {% if entry is mapping %}
-                        <li>{{ entry.child }} <span class="guardian-label">— Guardian: {{ entry.guardian }}</span></li>
+                        <li>
+                            {{ entry.child }}
+                            <p class="guardian-label">— Class: <strong>{{ entry.class_type or 'N/A' }}</strong></p>
+                            <p class="guardian-label">— Guardian: <strong>{{ entry.guardian }}</strong></p>
+                        </li>
                     {% else %}
                         <li>{{ entry }}</li>
                     {% endif %}
@@ -166,6 +170,7 @@
         <thead>
             <tr>
                 <th>Child Name</th>
+                <th>Class</th>
                 <th>Day Tag</th>
                 <th>Session / Service</th>
                 <th>Campus</th>
@@ -180,6 +185,7 @@
             {% for record in attendance_today %}
             <tr>
                 <td>{{ record['Child Name'] }}</td>
+                <td>{{ record.get('class_type') or '—' }}</td>
                 <td><strong>{{ record['Day Tag'] }}</strong></td>
                 <td>
                     {% set period = record.get('Session Period') %}
@@ -214,7 +220,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="9" style="text-align: center;">No one has been checked in yet today.</td>
+                <td colspan="10" style="text-align: center;">No one has been checked in yet today.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -280,6 +286,11 @@
   $(document).ready(function() {
     $('#child_name').select2({
       placeholder: "Search child...",
+      allowClear: true,
+      width: '100%'
+    });
+    $('#church_location').select2({
+      placeholder: "Select or search a campus",
       allowClear: true,
       width: '100%'
     });
