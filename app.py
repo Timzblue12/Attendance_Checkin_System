@@ -76,9 +76,13 @@ app.jinja_env.auto_reload = True
 app.jinja_env.cache = {}
 NIGERIA_TZ = pytz.timezone('Africa/Lagos')
 
-SPREADSHEET_NAME = "RBC25 Database_Child Care Registration"
+# SPREADSHEET_NAME = "RBC25 Database_Child Care Registration"
+SPREADSHEET_NAME = "Attendance System DB"
+
 INSTRUCTORS_SHEET = "Instructors"
-CHILDREN_SHEET = "Form responses 1"
+CHILDREN_SHEET = "Sheet1"
+
+# CHILDREN_SHEET = "Form responses 1"
 ATTENDANCE_SHEET = "AttendanceLog"
 
 CHILDREN_PER_PAGE = 20
