@@ -73,9 +73,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-super-secret-key-change-me'
 NIGERIA_TZ = pytz.timezone('Africa/Lagos')
 
-SPREADSHEET_NAME = "Attendance System DB"
+SPREADSHEET_NAME = "RBC25 Database_Child Care Registration"
 INSTRUCTORS_SHEET = "Instructors"
-CHILDREN_SHEET = "Sheet1"
+CHILDREN_SHEET = "Systemdata"
 ATTENDANCE_SHEET = "AttendanceLog"
 
 CHILDREN_PER_PAGE = 20
@@ -247,7 +247,7 @@ def get_sheets_client():
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_path = os.path.join(os.path.dirname(__file__), "credentials.json")
+    creds_path = os.path.join(os.path.dirname(__file__), "rbccelebkids.json")
     creds = Credentials.from_service_account_file(creds_path, scopes=scope)
     client = gspread.authorize(creds)
     return client
