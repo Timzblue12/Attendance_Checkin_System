@@ -81,16 +81,15 @@
                 Guardian Phone
                 <input type="tel" name="guardian_phone" required>
             </label>
-            <div class="modal-grid">
-                <label>
-                    State
-                    <input type="text" name="state">
-                </label>
-                <label>
-                    Church Location
-                    <input type="text" name="church_location">
-                </label>
-            </div>
+            <label>
+                Church Location
+                <select name="church_location" id="church_location_select">
+                    <option value="">-- Select Church Location --</option>
+                    {% for location in location_options %}
+                        <option value="{{ location }}">{{ location }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             <label>
                 Notes
                 <textarea name="notes" rows="2" placeholder="Optional notes"></textarea>
@@ -183,5 +182,21 @@
       toggleAddChildModal(false);
     }
   });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const selector = document.getElementById('church_location_select');
+    if (selector && window.jQuery && jQuery.fn.select2) {
+      jQuery(selector).select2({
+        placeholder: 'Select or search a campus',
+        allowClear: true,
+        width: '100%'
+      });
+    }
+  });
 </script>
+
+<!-- Searchable select (Select2) -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 {% endblock %}

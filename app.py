@@ -71,11 +71,24 @@ sync_queue.ensure_database_ready()
 # --- App Initialization and Configuration ---
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-super-secret-key-change-me'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
+app.jinja_env.cache = {}
 NIGERIA_TZ = pytz.timezone('Africa/Lagos')
 
+<<<<<<< HEAD
 SPREADSHEET_NAME = "RBC25 Database_Child Care Registration"
 INSTRUCTORS_SHEET = "Instructors"
 CHILDREN_SHEET = "Systemdata"
+=======
+# SPREADSHEET_NAME = "RBC25 Database_Child Care Registration"
+SPREADSHEET_NAME = "Attendance System DB"
+
+INSTRUCTORS_SHEET = "Instructors"
+CHILDREN_SHEET = "Sheet1"
+
+# CHILDREN_SHEET = "Form responses 1"
+>>>>>>> 6bb18a1ad458504c493a43eb77f80ca1a6ced642
 ATTENDANCE_SHEET = "AttendanceLog"
 
 CHILDREN_PER_PAGE = 20
@@ -146,6 +159,53 @@ DEFAULT_EVENT_OPTION = {
     "camp_groups": [],
 }
 
+DEFAULT_CHURCH_LOCATIONS = [
+    "Visitor",
+    "CCI Ikeja, Lagos",
+    "CCI Utako, Abuja",
+    "CCI Port Harcourt",
+    "CCI Toronto, ON",
+    "CCI Lagos Island, Lagos",
+    "CCI Ibadan",
+    "CCI West London, UK",
+    "CCI Ile-Ife",
+    "CCI Yaba, Lagos",
+    "CCI Ago, Lagos",
+    "CCI Birmingham West",
+    "CCI Uyo",
+    "CCI Mararaba, Abuja",
+    "CCI Lokogoma, Abuja",
+    "CCI Dallas",
+    "CCI Ajah, Lagos",
+    "CCI Abeokuta, Ogun",
+    "CCI Manchester, UK",
+    "CCI Glasgow, UK",
+    "CCI Ottawa, ON",
+    "CCI Akure, Ondo",
+    "CCI Ilorin",
+    "CCI Benin",
+    "CCI DMV",
+    "CCI South East London, UK",
+    "CCI Dublin",
+    "CCI Egbeda, Lagos",
+    "CCI Ikorodu, Lagos",
+    "CCI Winnipeg, MB",
+    "CCI East London, UK",
+    "CCI Enugu",
+    "CCI Hamilton, ON",
+    "CCI Oshawa, ON",
+    "CCI Barrie, ON",
+    "CCI Birmingham Central, UK",
+    "CCI Warri",
+    "CCI Osogbo",
+    "CCI Mgbuoba",
+    "CCI Kaduna",
+    "CCI Calgary, AB",
+    "CCI Boston",
+    "CCI Bolton, UK",
+    "CCI Austin",
+]
+
 
 def get_event_options():
     options = [DEFAULT_EVENT_OPTION.copy()]
@@ -197,6 +257,34 @@ def find_session(event_id, session_id):
 def apply_report_filters(event_id, selected_date, selected_service, selected_session_id,
                          selected_class, selected_state, selected_location, selected_tag):
     """Return filtered attendance records and supporting metadata for reports/export."""
+    def _normalize_service(value):
+        if value is None:
+            return ''
+        text = str(value).strip().lower()
+        # Strip leading day labels like "day 1" to keep only the period portion
+        text = text.replace('day 1', '').replace('day 2', '').replace('day 3', '').replace('day 4', '').replace('day 5', '')
+        if text.endswith('session'):
+            text = text[:-7].strip()
+        return text.strip()
+
+    def _matches_service(record, target):
+        if target == 'All':
+            return True
+        normalized_target = _normalize_service(target)
+        candidates = [
+            record.get('Service'),
+            record.get('Session Period'),
+            record.get('Session Label'),
+        ]
+        for candidate in candidates:
+            normalized_candidate = _normalize_service(candidate)
+            if normalized_candidate == normalized_target:
+                return True
+            # Handle cases like "Day 1 Morning Session" vs "Morning"
+            if normalized_target and normalized_target in normalized_candidate:
+                return True
+        return False
+
     child_to_class_map = get_child_class_map()
     children_records = get_all_children()
     all_logs = get_all_attendance_logs()
@@ -207,7 +295,7 @@ def apply_report_filters(event_id, selected_date, selected_service, selected_ses
     if selected_date:
         filtered_records = [rec for rec in filtered_records if rec.get('Date') == selected_date]
     if selected_service != 'All':
-        filtered_records = [rec for rec in filtered_records if rec.get('Service') == selected_service]
+        filtered_records = [rec for rec in filtered_records if _matches_service(rec, selected_service)]
     if selected_session_id != 'All':
         filtered_records = [rec for rec in filtered_records if rec.get('Session ID') == selected_session_id]
     if selected_class != 'All':
@@ -241,14 +329,34 @@ def apply_report_filters(event_id, selected_date, selected_service, selected_ses
 # --- Google Sheets Connection (Production Only) ---
 def get_sheets_client():
     """Establishes a connection with the Google Sheets API and returns a client object."""
+    def _find_credentials_path():
+        env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if env_path and os.path.exists(env_path):
+            return env_path
+
+        for name in ("credentials.json", "rbccelebkids.json"):
+            candidate = os.path.join(os.path.dirname(__file__), name)
+            if os.path.exists(candidate):
+                return candidate
+
+        raise FileNotFoundError(
+            "Google Sheets credentials not found. "
+            "Ensure credentials.json or rbccelebkids.json is present in the app folder "
+            "or set GOOGLE_APPLICATION_CREDENTIALS to the full path."
+        )
+
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive"
     ]
+<<<<<<< HEAD
     creds_path = os.path.join(os.path.dirname(__file__), "rbccelebkids.json")
     creds = Credentials.from_service_account_file(creds_path, scopes=scope)
+=======
+    creds = Credentials.from_service_account_file(_find_credentials_path(), scopes=scope)
+>>>>>>> 6bb18a1ad458504c493a43eb77f80ca1a6ced642
     client = gspread.authorize(creds)
     return client
 
@@ -1114,6 +1222,7 @@ def attendance_log():
     else:
         available_dates = get_event_dates(selected_event_id)
 
+    user_supplied_date = bool(request.values.get('session_day') or request.values.get('date'))
     selected_session_date = request.values.get('session_day') or request.values.get('date') or today_date_str
 
     session_options = get_sessions_for_date(selected_event_id, selected_session_date)
@@ -1125,7 +1234,7 @@ def attendance_log():
     else:
         selected_session_id = None
 
-    if selected_event_id != DEFAULT_EVENT_ID and not session_options:
+    if selected_event_id != DEFAULT_EVENT_ID and not session_options and not user_supplied_date:
         event_dates = get_event_dates(selected_event_id)
         preferred_date = None
         if today_date_str in event_dates:
@@ -1308,6 +1417,7 @@ def attendance_log():
             preview_details.append({
                 'child': child_name,
                 'guardian': meta.get('guardian_name') or 'N/A',
+                'class_type': meta.get('class_type') or 'N/A',
             })
         checkout_preview['details'] = preview_details
 
@@ -1315,11 +1425,21 @@ def attendance_log():
     if not state_options:
         state_options = sorted({meta['state'] for meta in children_meta.values() if meta['state']})
 
-    church_locations = selected_event.get('church_locations', []) if selected_event else []
-    if not church_locations:
-        church_locations = sorted({meta['church_location'] for meta in children_meta.values() if meta['church_location']})
+    event_locations = selected_event.get('church_locations', []) if selected_event else []
+    fallback_locations = {meta['church_location'] for meta in children_meta.values() if meta['church_location']}
+    church_locations = list(DEFAULT_CHURCH_LOCATIONS)
+    for loc in event_locations:
+        if loc and loc not in church_locations:
+            church_locations.append(loc)
+    for loc in sorted(fallback_locations):
+        if loc and loc not in church_locations:
+            church_locations.append(loc)
 
     attendance_records = get_attendance_logs_by_date(selected_session_date)
+    child_to_class_map = get_child_class_map()
+    for record in attendance_records:
+        child_name = record.get('Child Name')
+        record['class_type'] = child_to_class_map.get(child_name, 'N/A')
 
     service_type_default = request.args.get('service_type', '')
     if not service_type_default and request.method == 'POST':
@@ -1431,6 +1551,9 @@ def children_list():
         return redirect(url_for('login'))
 
     all_children = get_all_children()
+    existing_locations = {child.get('Church Location') for child in all_children if child.get('Church Location')}
+    extra_locations = sorted(loc for loc in existing_locations if loc not in DEFAULT_CHURCH_LOCATIONS)
+    location_options = DEFAULT_CHURCH_LOCATIONS + extra_locations
     indexed_children = []
     for idx, child in enumerate(all_children, start=2):
         child_copy = dict(child)
@@ -1445,7 +1568,8 @@ def children_list():
     paginated_children, pagination = paginate_collection(newest_first_children, page, CHILDREN_PER_PAGE,
                                                         'children_list', request.args)
 
-    return render_template('children.html', children_list=paginated_children, pagination=pagination)
+    return render_template('children.html', children_list=paginated_children, pagination=pagination,
+                           location_options=location_options)
 
 
 @app.route('/children/add', methods=['POST'])
@@ -1654,6 +1778,9 @@ def child_details(row_id):
         return redirect(url_for('login'))
 
     all_children = get_all_children()
+    existing_locations = {child.get('Church Location') for child in all_children if child.get('Church Location')}
+    extra_locations = sorted(loc for loc in existing_locations if loc not in DEFAULT_CHURCH_LOCATIONS)
+    location_options = DEFAULT_CHURCH_LOCATIONS + extra_locations
     child_record = None
     for idx, child in enumerate(all_children, start=2):
         current_row_id = child.get('row_id', idx)
@@ -1666,7 +1793,8 @@ def child_details(row_id):
 
     class_options = ['Tenderfoots', 'Light Troopers', 'Tribe of Truth']
 
-    return render_template('child_details.html', child=child_record, class_options=class_options)
+    return render_template('child_details.html', child=child_record, class_options=class_options,
+                           location_options=location_options)
 
 
 @app.route('/child/<int:row_id>/update', methods=['POST'])
@@ -1730,6 +1858,7 @@ def reports():
     selected_class = request.args.get('class_type', default='All')
     selected_tag = request.args.get('day_tag', default='')
     page = parse_page_param(request.args.get('page', 1))
+    heading_date = selected_date or today_date_str
 
     report_data = apply_report_filters(selected_event_id, selected_date, selected_service,
                                        selected_session_id, selected_class, selected_state,
@@ -1780,21 +1909,46 @@ def reports():
     if not state_options:
         state_options = sorted({child.get('State') for child in children_records if child.get('State')})
 
-    location_options = selected_event.get('church_locations', []) if selected_event else []
-    if not location_options:
-        location_options = sorted({child.get('Church Location') for child in children_records if child.get('Church Location')})
+    event_locations = selected_event.get('church_locations', []) if selected_event else []
+    fallback_locations = {child.get('Church Location') for child in children_records if child.get('Church Location')}
+    location_options = list(DEFAULT_CHURCH_LOCATIONS)
+    for loc in event_locations:
+        if loc and loc not in location_options:
+            location_options.append(loc)
+    for loc in sorted(fallback_locations):
+        if loc and loc not in location_options:
+            location_options.append(loc)
+
+    service_options: list[dict] = []
+
+    def add_service_option(value: str, label: str | None = None) -> None:
+        if not value:
+            return
+        if any(opt["value"] == value for opt in service_options):
+            return
+        service_options.append({"value": value, "label": label or value})
 
     if selected_event_id == DEFAULT_EVENT_ID:
-        service_options = ["1st Service", "2nd Service"]
+        add_service_option("1st Service")
+        add_service_option("2nd Service")
+    elif selected_event_id == "rebootcamp":
+        add_service_option("Morning", "Morning Session")
+        add_service_option("Afternoon", "Afternoon Session")
+        add_service_option("Evening", "Evening Session")
     else:
-        service_options = sorted({session.get('period') for session in selected_event.get('sessions', []) if session.get('period')})
-        if not service_options:
-            service_options = ["Morning", "Afternoon", "Evening"]
+        periods = sorted({session.get('period') for session in selected_event.get('sessions', []) if session.get('period')})
+        if not periods:
+            periods = ["Morning", "Afternoon", "Evening"]
+        for period in periods:
+            add_service_option(period)
 
-    log_services = [rec.get('Service') for rec in all_logs if rec.get('Service')]
+    log_services = [
+        rec.get('Service')
+        for rec in all_logs
+        if rec.get('Service') and rec.get('Event ID') in (selected_event_id, '', None)
+    ]
     for value in log_services:
-        if value and value not in service_options:
-            service_options.append(value)
+        add_service_option(value)
 
     return render_template('reports.html',
                            grouped_records=grouped_records,
